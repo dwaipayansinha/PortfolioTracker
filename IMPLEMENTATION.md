@@ -47,4 +47,6 @@ To ensure the app runs on any Windows 10/11 machine without prerequisites:
 - **Fetch Failures:** If a ticker fetch fails, the UI displays a specialized error component.
 - **Auto-Retry:** A `useEffect` hook in React manages a 60-second countdown timer that automatically triggers a re-fetch.
 - **Ticker Resolver:** If the API returns no data, the backend initiates a name-based search on Yahoo Finance to find if the fund has transitioned to a new symbol.
+- **Data Caching:** The backend implements a persistent file-based cache using `diskcache`. Successful API responses are stored locally and serve as a "graceful fallback" if future network requests fail or are rate-limited.
+- **Auto-Refresh Logic:** The frontend includes an hourly timer that automatically triggers a background data refresh for the active portfolio, ensuring the dashboard remains current during long-running sessions.
 - **Software Updates:** The Electron main process utilizes `electron-updater` to check for new releases on GitHub. If an update is available, it is automatically downloaded in the background. The UI provides a "Check for updates" button and status notifications. Upon download completion, the app prompts for a restart to apply the update.

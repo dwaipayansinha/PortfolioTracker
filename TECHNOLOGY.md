@@ -16,7 +16,9 @@ This document provides a detailed breakdown of the technologies used in the Cana
 - **Data Science:** 
   - **Pandas & NumPy:** For time-series manipulation and statistical calculations.
   - **Scikit-learn:** Specifically used for the Linear Regression forecasting model.
-- **Persistence:** Local JSON storage (`renamed_tickers.json`) for the Ticker Auto-Resolver memory.
+- **Persistence:** 
+  - **Diskcache:** For high-performance, file-based API response caching.
+  - **Local JSON:** For the Ticker Auto-Resolver memory.
 
 ## Core Features
 ### 1. Hybrid Analysis Model
