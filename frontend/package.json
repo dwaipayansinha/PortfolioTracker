@@ -65,11 +65,19 @@
       }
     ],
     "win": {
-      "target": [
-        "portable"
-      ],
+      "target": "nsis",
       "icon": "public/electron-vite.svg",
       "forceCodeSigning": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": true,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Portfolio Tracker",
+      "runAfterFinish": true
     },
     "publish": [
       {
