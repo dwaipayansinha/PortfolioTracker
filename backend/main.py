@@ -10,13 +10,27 @@ import json
 import requests
 import diskcache
 from datetime import datetime
+import time
+from requests import Session
+from requests_cache import CacheMixin, SQLiteCache
+from requests_ratelimiter import LimiterMixin, MemoryQueueBucket
+from pyrate_limiter import Duration, RequestRate, Limiter
 
 warnings.filterwarnings("ignore")
 
+# Create a robust session for yfinance to prevent rate limiting and handle retries
+class CachedLimiterSession(CacheMixin, LimiterMixin, Session):
+    pass
+
+session = CachedLimiterSession(
+    limiter=Limiter(RequestRate(2, Duration.SECOND * 5)),  # Max 2 requests per 5 seconds
+    bucket_class=MemoryQueueBucket,
+    backend=SQLiteCache("yfinance_cache.sqlite", expire_after=3600),
+)
+
 app = FastAPI()
 
-# Setup persistent disk cache
-# This will create a 'cache' directory that persists between runs
+# Setup persistent disk cache for final processed data
 cache = diskcache.Cache("api_cache")
 
 # Allow CORS for local development
@@ -78,10 +92,8 @@ def save_rename(old_ticker, new_ticker):
     renames = {}
     if os.path.exists(RENAME_FILE):
         with open(RENAME_FILE, 'r') as f:
-            try:
-                renames = json.load(f)
-            except:
-                pass
+            try: renames = json.load(f)
+            except: pass
     renames[old_ticker] = new_ticker
     with open(RENAME_FILE, 'w') as f:
         json.dump(renames, f)
@@ -89,31 +101,43 @@ def save_rename(old_ticker, new_ticker):
 def find_portfolio_name(ticker):
     for bank, funds in PORTFOLIOS.items():
         for name, t in funds.items():
-            if t == ticker:
-                return name
+            if t == ticker: return name
     return None
+
+def robust_download(ticker, period, interval, attempts=3):
+    """Downloads data with manual retries and fallback logic."""
+    for i in range(attempts):
+        try:
+            data = yf.download(ticker, period=period, interval=interval, session=session, progress=False)
+            if not data.empty:
+                return data
+            # If intraday (1d/1w) failed, try a larger interval
+            if interval in ["5m", "1h"]:
+                data = yf.download(ticker, period=period, interval="1d", session=session, progress=False)
+                if not data.empty: return data
+        except Exception as e:
+            print(f"Attempt {i+1} failed for {ticker}: {e}")
+            if i < attempts - 1:
+                time.sleep(1) # Wait before retry
+    return pd.DataFrame()
 
 def resolve_ticker(ticker):
     current_ticker = get_renamed_ticker(ticker)
-    try:
-        data = yf.download(current_ticker, period="1d", progress=False)
-        if not data.empty:
-            return current_ticker
-    except:
-        pass
+    data = robust_download(current_ticker, "1d", "1d", attempts=1)
+    if not data.empty: return current_ticker
         
     name = find_portfolio_name(ticker)
     if name:
         try:
             url = f"https://query2.finance.yahoo.com/v1/finance/search?q={name}"
             headers = {'User-Agent': 'Mozilla/5.0'}
-            res = requests.get(url, headers=headers, timeout=5)
+            res = session.get(url, headers=headers, timeout=5)
             search_data = res.json()
             if search_data.get('quotes'):
                 for quote in search_data['quotes']:
                     if quote.get('symbol') and quote.get('symbol') != current_ticker:
                          new_ticker = quote['symbol']
-                         verify = yf.download(new_ticker, period="1d", progress=False)
+                         verify = yf.download(new_ticker, period="1d", session=session, progress=False)
                          if not verify.empty:
                              save_rename(ticker, new_ticker)
                              return new_ticker
@@ -143,17 +167,15 @@ def get_historical(ticker: str, range: str = "1w"):
     interval = interval_map.get(range, "1d")
     
     try:
-        data = yf.download(resolved_ticker, period=yf_period, interval=interval, progress=False)
-        if data.empty:
-            data = yf.download(resolved_ticker, period=yf_period, interval="1d", progress=False)
+        data = robust_download(resolved_ticker, yf_period, interval)
+        
+        # Final fallback to max if still empty
         if data.empty and yf_period != "max":
-            data = yf.download(resolved_ticker, period="max", interval="1d", progress=False)
+            data = robust_download(resolved_ticker, "max", "1d")
             
         if data.empty:
-             # If API fails, try to return from cache regardless of age
              cached_val = cache.get(cache_key)
-             if cached_val:
-                 return cached_val
+             if cached_val: return cached_val
              raise HTTPException(status_code=404, detail=f"No data found for ticker {resolved_ticker}")
              
         if isinstance(data.columns, pd.MultiIndex):
@@ -164,14 +186,11 @@ def get_historical(ticker: str, range: str = "1w"):
         data['time'] = data[date_col].astype(str)
         result = data[['time', 'Close']].rename(columns={'Close': 'value'}).dropna().to_dict(orient='records')
         
-        # Save to cache on success
-        cache.set(cache_key, result, expire=3600) # Expire after 1 hour but we'll use stale data on error
+        cache.set(cache_key, result, expire=3600) 
         return result
     except Exception as e:
-        # On any exception, try to fallback to cache
         cached_val = cache.get(cache_key)
-        if cached_val:
-            return cached_val
+        if cached_val: return cached_val
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/analysis/{ticker}")
@@ -180,9 +199,9 @@ def get_analysis(ticker: str):
     cache_key = f"analysis_{resolved_ticker}"
     
     try:
-        data = yf.download(resolved_ticker, period="2y", interval="1d", progress=False)
+        data = robust_download(resolved_ticker, "2y", "1d")
         if data.empty:
-            data = yf.download(resolved_ticker, period="max", interval="1d", progress=False)
+            data = robust_download(resolved_ticker, "max", "1d")
             
         if data.empty:
              cached_val = cache.get(cache_key)
@@ -193,8 +212,8 @@ def get_analysis(ticker: str):
             data.columns = data.columns.droplevel(1)
             
         closes = data['Close'].dropna()
-        if len(closes) < 30:
-             return {"recommendation": "Diversify", "confidence": 50, "reasons": ["Insufficient data for full analysis"]}
+        if len(closes) < 10: # Minimum data for basic analysis
+             return {"recommendation": "Diversify", "confidence": 50, "reasons": ["Insufficient history for AI model"]}
              
         sma_50 = closes.rolling(window=50).mean().iloc[-1] if len(closes) >= 50 else closes.mean()
         sma_200 = closes.rolling(window=200).mean().iloc[-1] if len(closes) >= 200 else sma_50
@@ -203,7 +222,7 @@ def get_analysis(ticker: str):
         returns = closes.pct_change().dropna()
         volatility = returns.std() * np.sqrt(252)
         annual_return = returns.mean() * 252
-        sharpe = annual_return / volatility if volatility != 0 else 0
+        sharpe = annual_return / volatility if volatility > 0.0001 else 0
         
         lookback = min(100, len(closes))
         y = closes.values[-lookback:]
@@ -219,9 +238,9 @@ def get_analysis(ticker: str):
         else: score -= 1; reasons.append("Price is below 50-day SMA (Bearish).")
         if sma_50 > sma_200: score += 1; reasons.append("Golden Cross active (50SMA > 200SMA).")
         else: score -= 1; reasons.append("Death Cross active (50SMA < 200SMA).")
-        if sharpe > 0.5: score += 1; reasons.append(f"Favorable risk-adjusted returns (Sharpe: {sharpe:.2f}).")
+        if sharpe > 0.4: score += 1; reasons.append(f"Strong risk-adjusted returns (Sharpe: {sharpe:.2f}).")
         elif sharpe < 0: score -= 1; reasons.append(f"Poor risk-adjusted returns (Sharpe: {sharpe:.2f}).")
-        if forecast_price > current_price * 1.02: score += 2; reasons.append(f"ML Model forecasts >2% growth in 30 days.")
+        if forecast_price > current_price * 1.015: score += 2; reasons.append(f"ML Model forecasts >1.5% growth in 30 days.")
         elif forecast_price < current_price: score -= 2; reasons.append(f"ML Model forecasts price drop.")
             
         rec = "Invest" if score >= 2 else "Remove" if score <= -2 else "Diversify"
