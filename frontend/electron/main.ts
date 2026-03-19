@@ -1,10 +1,15 @@
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
 import { spawn, ChildProcess } from 'child_process'
 import { fileURLToPath } from 'url'
+import { autoUpdater } from 'electron-updater'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+
+// Configure autoUpdater
+autoUpdater.autoDownload = true
+autoUpdater.allowPrerelease = false
 
 // The built directory structure
 //
@@ -70,6 +75,11 @@ function createWindow() {
   // Start the backend
   startBackend()
 
+  // Check for updates on startup
+  if (app.isPackaged) {
+    autoUpdater.checkForUpdatesAndNotify()
+  }
+
   // Test active push message to Renderer-process.
   win.webContents.on('did-finish-load', () => {
     win?.webContents.send('main-process-message', (new Date).toLocaleString())
@@ -102,6 +112,38 @@ app.on('will-quit', () => {
   if (backendProcess) {
     backendProcess.kill()
   }
+})
+
+// Update listeners
+autoUpdater.on('checking-for-update', () => {
+  win?.webContents.send('update-status', 'Checking for update...')
+})
+
+autoUpdater.on('update-available', (info) => {
+  win?.webContents.send('update-status', `Update available: v${info.version}`)
+})
+
+autoUpdater.on('update-not-available', () => {
+  win?.webContents.send('update-status', 'You are on the latest version.')
+})
+
+autoUpdater.on('error', (err) => {
+  win?.webContents.send('update-status', `Error: ${err.message}`)
+})
+
+autoUpdater.on('download-progress', (progressObj) => {
+  win?.webContents.send('update-status', `Downloading: ${Math.round(progressObj.percent)}%`)
+})
+
+autoUpdater.on('update-downloaded', () => {
+  win?.webContents.send('update-status', 'Update downloaded; restarting...')
+  setTimeout(() => {
+    autoUpdater.quitAndInstall()
+  }, 2000)
+})
+
+ipcMain.on('check-for-updates', () => {
+  autoUpdater.checkForUpdates()
 })
 
 app.whenReady().then(createWindow)

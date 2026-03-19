@@ -62,8 +62,9 @@ npm run dev
 ```
 
 ## Features
-- **Big Four Coverage:** Track top portfolios from TD, BMO, RBC, and Scotiabank.
+- **Big Five Coverage:** Track top portfolios from TD, BMO, RBC, Scotiabank, and CIBC.
 - **Interactive Charting:** View historical data over 1D, 1W (Default), 1M, 6M, 1Y, 5Y, 10Y, and Max timeframes.
 - **Hybrid Analysis:** Combines Traditional Quant (SMA, Risk metrics) with ML forecasting to generate an actionable score.
+- **Auto-Updates:** Automatically checks for and installs new software releases from GitHub at startup.
 - **Self-Healing:** Ticker Auto-Resolver searches for renamed portfolios automatically.
 - **Error Recovery:** Integrated 60s auto-refresh and manual retry UI for data fetching.

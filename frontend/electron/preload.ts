@@ -18,4 +18,7 @@ contextBridge.exposeInMainWorld('ipcRenderer', {
     const [channel, ...omit] = args
     return ipcRenderer.invoke(channel, ...omit)
   },
+  checkForUpdates() {
+    ipcRenderer.send('check-for-updates')
+  }
 })

@@ -33,4 +33,5 @@ A self-healing mechanism that:
 
 ### 3. Desktop Integration
 - **Process Management:** The Electron main process handles the lifecycle of the Python backend, spawning it on launch and terminating it on quit.
+- **Auto-Updates:** Integrated [electron-updater](https://www.npmjs.com/package/electron-updater) for automatic software updates via GitHub Releases.
 - **Communication:** Standard REST API calls over localhost (Port 8000) with CORS protection.

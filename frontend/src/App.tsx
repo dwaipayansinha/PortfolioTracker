@@ -4,10 +4,23 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts'
 import {
-  TrendingUp, AlertCircle, Briefcase, Activity, CheckCircle, XCircle, ChevronDown, ChevronRight
+  TrendingUp, AlertCircle, Briefcase, Activity, CheckCircle, XCircle, ChevronDown, ChevronRight, RefreshCw, Download
 } from 'lucide-react'
 
 const API_BASE = 'http://127.0.0.1:8000/api'
+
+// Define the window interface for IPC
+declare global {
+  interface Window {
+    ipcRenderer: {
+      on: (channel: string, listener: (event: any, ...args: any[]) => void) => void
+      off: (channel: string, ...args: any[]) => void
+      send: (channel: string, ...args: any[]) => void
+      invoke: (channel: string, ...args: any[]) => Promise<any>
+      checkForUpdates: () => void
+    }
+  }
+}
 
 type Portfolio = {
   name: string
@@ -59,6 +72,20 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [retryTimer, setRetryTimer] = useState<number>(60)
+  const [updateStatus, setUpdateStatus] = useState<string | null>(null)
+
+  useEffect(() => {
+    // Listen for update status from main process
+    if (window.ipcRenderer) {
+      window.ipcRenderer.on('update-status', (_event, status: string) => {
+        setUpdateStatus(status)
+        // Auto-clear success messages after 5 seconds
+        if (status.includes("latest version") || status.includes("Error")) {
+          setTimeout(() => setUpdateStatus(null), 5000)
+        }
+      })
+    }
+  }, [])
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -161,7 +188,7 @@ function App() {
           <Briefcase size={24} />
           <h1>Portfolio Tracker</h1>
         </div>
-        <div className="portfolio-list" style={{ padding: '0' }}>
+        <div className="portfolio-list" style={{ padding: '0', flex: 1 }}>
           {Object.entries(groupedPortfolios).map(([bank, portfolios]) => (
             <div key={bank} className="bank-group">
               <button 
@@ -199,6 +226,41 @@ function App() {
               )}
             </div>
           ))}
+        </div>
+
+        {/* Update Section */}
+        <div className="sidebar-footer" style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          {updateStatus && (
+            <div style={{ 
+              fontSize: '0.75rem', 
+              color: updateStatus.includes('Error') ? '#f87171' : '#4ade80',
+              marginBottom: '10px',
+              backgroundColor: 'rgba(255,255,255,0.03)',
+              padding: '8px',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <RefreshCw size={12} style={{ animation: (updateStatus.includes('Checking') || updateStatus.includes('Downloading')) ? 'spin 1s linear infinite' : 'none' }} />
+              {updateStatus}
+            </div>
+          )}
+          <button 
+            className="portfolio-item" 
+            onClick={() => window.ipcRenderer?.checkForUpdates()}
+            style={{ 
+              width: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px',
+              justifyContent: 'center',
+              backgroundColor: 'rgba(255,255,255,0.05)'
+            }}
+          >
+            <Download size={16} />
+            <span>Check for updates</span>
+          </button>
         </div>
       </div>
 
