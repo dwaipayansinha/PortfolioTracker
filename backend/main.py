@@ -53,7 +53,7 @@ PORTFOLIOS = {
         "CIBC All-Equity (Avantis Partnership)": "CAGE.TO",
     },
     "iShares (RBC Partner)": {
-        "iShares Core Conservative (XCON)": "XCON.TO",
+        "iShares Core Conservative (XCNS)": "XCNS.TO",
         "iShares Core Balanced (XBAL)": "XBAL.TO",
         "iShares Core Growth (XGRO)": "XGRO.TO",
         "iShares Core All-Equity (XEQT)": "XEQT.TO",

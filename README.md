@@ -1,4 +1,4 @@
-# Canadian Bank Investment Portfolio Tracker (v1.1.0)
+# Canadian Bank Investment Portfolio Tracker (v1.2.0)
 
 A modern desktop application built with Electron, React, and Python (FastAPI) to track TD, BMO, RBC, Scotiabank, and CIBC portfolios, visualize their historical performance, and get AI-powered investment recommendations using a hybrid quantitative/ML approach.
 
@@ -13,7 +13,7 @@ For detailed technical information, please refer to the following files:
 The project includes a fully packaged installer for **Windows 10 & 11**. This version is completely standalone and does not require Python or Node.js.
 
 **Installer Location:**
-`frontend/out/make/squirrel.windows/x64/portfolio-tracker-1.1.0 Setup.exe`
+`frontend/out/make/squirrel.windows/x64/portfolio-tracker-1.2.0 Setup.exe`
 
 **Installation Steps:**
 1.  **Run the Setup**: Double-click the `.exe` file.
@@ -40,6 +40,7 @@ npm run dev
 ## Core Features
 - **Big Five Coverage:** Complete tracking for TD, BMO, RBC, Scotiabank, and CIBC suites.
 - **Fail-Safe Data:** Triple-API fallback (Yahoo -> FMP -> Twelve Data) ensuring maximum uptime.
+- **Sequential History:** Intelligent fallback for new funds (tries Max -> 10Y -> ... -> 1D automatically).
 - **Hybrid Analysis:** Combines Moving Averages and Sharpe Ratios with Machine Learning price forecasting.
 - **Persistent Cache:** Displays last successful data even when offline or rate-limited.
 - **Auto-Updates:** Native background updates via GitHub Releases.
