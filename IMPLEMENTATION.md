@@ -20,13 +20,13 @@ The recommendation engine uses a weighted scoring system (Score range: -5 to +5)
 
 ### 2. Risk Metric (Sharpe Ratio)
 - **Signal:** Annualized risk-adjusted return.
-- **Logic:** Sharpe > 0.5 adds to the "Invest" confidence. Sharpe < 0 suggests the fund is not returning enough for its volatility.
+- **Logic:** Sharpe > 0.4 adds to the "Invest" confidence. Sharpe < 0 suggests the fund is not returning enough for its volatility.
 
 ### 3. ML Trend Forecasting
 - **Model:** Scikit-learn Linear Regression.
 - **Training:** Trained on the most recent 100 days of closing prices.
 - **Prediction:** Forecasts the price 30 days into the future.
-- **Impact:** If forecasted growth is >2%, the score receives a high-weight boost (+2).
+- **Impact:** If forecasted growth is >1.5%, the score receives a high-weight boost (+2).
 
 ### Final Recommendation Output:
 - **Invest:** Score >= 2
@@ -42,11 +42,11 @@ To ensure the app runs on any Windows 10/11 machine without prerequisites:
 3.  **Electron Forge:** Combines the UI assets and the backend executable into a final package.
 4.  **Resource Management:** The backend executable is placed in the `extraResources` folder. At runtime, the Electron Main process locates this file using `process.resourcesPath` and spawns it.
 
-## Error Handling & Recovery
+## Error Handling & Reliability
 
-- **Fetch Failures:** If a ticker fetch fails, the UI displays a specialized error component.
-- **Auto-Retry:** A `useEffect` hook in React manages a 60-second countdown timer that automatically triggers a re-fetch.
-- **Ticker Resolver:** If the API returns no data, the backend initiates a name-based search on Yahoo Finance to find if the fund has transitioned to a new symbol.
-- **Data Caching:** The backend implements a persistent file-based cache using `diskcache`. Successful API responses are stored locally and serve as a "graceful fallback" if future network requests fail or are rate-limited.
-- **Auto-Refresh Logic:** The frontend includes an hourly timer that automatically triggers a background data refresh for the active portfolio, ensuring the dashboard remains current during long-running sessions.
-- **Software Updates:** The Electron main process utilizes `electron-updater` to check for new releases on GitHub. If an update is available, it is automatically downloaded in the background. The UI provides a "Check for updates" button and status notifications. Upon download completion, the app prompts for a restart to apply the update.
+- **Multi-Source Fallback:** If the primary data source (Yahoo Finance) is rate-limited or provides "Insufficient History" (less than 30 days), the system automatically falls back to **Financial Modeling Prep** and then **Twelve Data** to satisfy the requirements of the AI models.
+- **Persistent Data Caching:** The backend implements a file-based cache using `diskcache`. Successful API responses are stored locally and serve as a "graceful fallback" if all network requests fail.
+- **Auto-Retry:** A `useEffect` hook in React manages a 60-second countdown timer that automatically triggers a re-fetch upon failure.
+- **Ticker Resolver:** If the API returns no data, the backend initiates a name-based search to find if the fund has transitioned to a new symbol.
+- **Auto-Refresh Logic:** The frontend includes an hourly timer that automatically triggers a background data refresh for the active portfolio.
+- **Software Updates:** The Electron main process utilizes `electron-updater` to check for new releases on GitHub. If an update is available, it is automatically downloaded and installed.

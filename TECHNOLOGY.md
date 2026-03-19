@@ -12,7 +12,10 @@ This document provides a detailed breakdown of the technologies used in the Cana
 
 ## Backend (AI & Data Engine)
 - **Framework:** [FastAPI](https://fastapi.tiangolo.com/) (Python) for high-performance, asynchronous API endpoints.
-- **Data Sourcing:** [yfinance](https://github.com/ranaroussi/yfinance) for fetching live and historical market data from Yahoo Finance.
+- **Data Sourcing:** 
+  - **yfinance (Primary):** For high-resolution intraday and historical market data.
+  - **Financial Modeling Prep (Fallback 1):** Official REST API for TSX reliability.
+  - **Twelve Data (Fallback 2):** Tertiary coverage for maximum uptime.
 - **Data Science:** 
   - **Pandas & NumPy:** For time-series manipulation and statistical calculations.
   - **Scikit-learn:** Specifically used for the Linear Regression forecasting model.
@@ -27,13 +30,17 @@ The "Strongest Output" recommendation engine combines:
 - **Machine Learning Forecasting:** A Linear Regression model trained on recent price action to predict 30-day trends.
 - **Weighted Scoring:** A logic engine that synthesizes these inputs into an Invest, Diversify, or Remove signal.
 
-### 2. Ticker Auto-Resolver
-A self-healing mechanism that:
-1. Detects failed data fetches.
-2. Automatically searches Yahoo Finance for renamed or updated symbols by fund name.
-3. Verifies the new ticker and caches it for future use.
+### 2. Multi-Source Fail-Safe
+A robust data pipeline that:
+1.  Attempts primary fetch from Yahoo Finance.
+2.  Automatically falls back to FMP or Twelve Data if Yahoo is rate-limited or returns insufficient history.
+3.  Ensures a minimum of 30 days of history for AI models whenever possible.
+4.  Caches all successful results locally for instant subsequent loads.
 
-### 3. Desktop Integration
-- **Process Management:** The Electron main process handles the lifecycle of the Python backend, spawning it on launch and terminating it on quit.
+### 3. Ticker Auto-Resolver
+A self-healing mechanism that detects failed data fetches and automatically searches for renamed symbols.
+
+### 4. Desktop Integration
+- **Process Management:** The Electron main process handles the lifecycle of the Python backend.
 - **Auto-Updates:** Integrated [electron-updater](https://www.npmjs.com/package/electron-updater) for automatic software updates via GitHub Releases.
 - **Communication:** Standard REST API calls over localhost (Port 8000) with CORS protection.

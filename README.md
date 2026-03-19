@@ -1,33 +1,11 @@
-# Canadian Bank Investment Portfolio Tracker
+# Canadian Bank Investment Portfolio Tracker (v1.1.0)
 
-A modern desktop application built with Electron, React, and Python (FastAPI) to track TD, BMO, RBC, and Scotiabank portfolios, visualize their historical performance, and get AI-powered investment recommendations using a hybrid quantitative/ML approach.
+A modern desktop application built with Electron, React, and Python (FastAPI) to track TD, BMO, RBC, Scotiabank, and CIBC portfolios, visualize their historical performance, and get AI-powered investment recommendations using a hybrid quantitative/ML approach.
 
 ## Documentation Index
 For detailed technical information, please refer to the following files:
-- [TECHNOLOGY.md](./TECHNOLOGY.md) - Full breakdown of the tech stack and core features.
-- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Deep dive into AI logic, architecture, and packaging.
-
-## Prerequisites (for Development only)
-- Node.js (v20+)
-- Python (v3.12+)
-
-## Setup
-
-1. **Backend (Python)**
-   Open a terminal and navigate to the `backend` folder:
-   ```bash
-   cd backend
-   python -m venv venv
-   .\venv\Scripts\activate
-   pip install fastapi uvicorn yfinance pandas scikit-learn requests pyinstaller
-   ```
-
-2. **Frontend (Electron + React)**
-   Open a second terminal and navigate to the `frontend` folder:
-   ```bash
-   cd frontend
-   npm install
-   ```
+- [TECHNOLOGY.md](./TECHNOLOGY.md) - Full breakdown of the multi-source tech stack.
+- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Deep dive into AI logic, fallback architecture, and packaging.
 
 ## Installation & User Guide
 
@@ -35,16 +13,16 @@ For detailed technical information, please refer to the following files:
 The project includes a fully packaged installer for **Windows 10 & 11**. This version is completely standalone and does not require Python or Node.js.
 
 **Installer Location:**
-`frontend/out/make/squirrel.windows/x64/portfolio-tracker-1.0.0 Setup.exe`
+`frontend/out/make/squirrel.windows/x64/portfolio-tracker-1.1.0 Setup.exe`
 
 **Installation Steps:**
 1.  **Run the Setup**: Double-click the `.exe` file.
 2.  **Security Note**: Since this is a private build, Windows may show a "Windows protected your PC" popup. Click **"More info"** and then **"Run anyway"**.
-3.  **Automatic Setup**: The installer will automatically install the app to your local user directory.
-4.  **Launch**: Once finished, the app will launch automatically. You will find a **"Portfolio Tracker"** shortcut on your Desktop and in your Start Menu.
+3.  **Automatic Setup**: The app installs automatically to your local user directory and creates shortcuts.
+4.  **Auto-Updates**: The app will automatically check for and install newer versions on startup.
 
 ### 2. Running from Source (Development)
-If you wish to modify the code and run the development version:
+If you wish to modify the code:
 
 **Step 1: Start the Python Backend**
 ```bash
@@ -52,19 +30,17 @@ cd backend
 .\venv\Scripts\activate
 python main.py
 ```
-*(The API will start at http://127.0.0.1:8000)*
 
 **Step 2: Start the Electron Frontend**
-In a new terminal:
 ```bash
 cd frontend
 npm run dev
 ```
 
-## Features
-- **Big Five Coverage:** Track top portfolios from TD, BMO, RBC, Scotiabank, and CIBC.
-- **Interactive Charting:** View historical data over 1D, 1W (Default), 1M, 6M, 1Y, 5Y, 10Y, and Max timeframes.
-- **Hybrid Analysis:** Combines Traditional Quant (SMA, Risk metrics) with ML forecasting to generate an actionable score.
-- **Auto-Updates:** Automatically checks for and installs new software releases from GitHub at startup.
-- **Self-Healing:** Ticker Auto-Resolver searches for renamed portfolios automatically.
-- **Error Recovery:** Integrated 60s auto-refresh and manual retry UI for data fetching.
+## Core Features
+- **Big Five Coverage:** Complete tracking for TD, BMO, RBC, Scotiabank, and CIBC suites.
+- **Fail-Safe Data:** Triple-API fallback (Yahoo -> FMP -> Twelve Data) ensuring maximum uptime.
+- **Hybrid Analysis:** Combines Moving Averages and Sharpe Ratios with Machine Learning price forecasting.
+- **Persistent Cache:** Displays last successful data even when offline or rate-limited.
+- **Auto-Updates:** Native background updates via GitHub Releases.
+- **Self-Healing:** Automatic ticker resolution for renamed or retired funds.

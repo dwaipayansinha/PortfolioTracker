@@ -53,7 +53,7 @@ type Analysis = {
 
 const TIMEFRAMES = [
   { label: '1D', value: '1d' },
-  { label: '1W', value: '1w' },
+  { label: '5D', value: '5d' },
   { label: '1M', value: '1m' },
   { label: '6M', value: '6m' },
   { label: '1Y', value: '1y' },
@@ -66,7 +66,7 @@ function App() {
   const [groupedPortfolios, setGroupedPortfolios] = useState<GroupedPortfolios>({})
   const [expandedBanks, setExpandedBanks] = useState<Record<string, boolean>>({ "TD (One-Click 2026)": true, "CIBC (New 2025/2026)": true })
   const [activePortfolio, setActivePortfolio] = useState<Portfolio | null>(null)
-  const [timeframe, setTimeframe] = useState<string>('1w')
+  const [timeframe, setTimeframe] = useState<string>('5d')
   const [chartData, setChartData] = useState<ChartData[]>([])
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [loading, setLoading] = useState(false)
