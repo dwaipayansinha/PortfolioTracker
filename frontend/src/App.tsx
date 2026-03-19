@@ -51,7 +51,7 @@ const TIMEFRAMES = [
 
 function App() {
   const [groupedPortfolios, setGroupedPortfolios] = useState<GroupedPortfolios>({})
-  const [expandedBanks, setExpandedBanks] = useState<Record<string, boolean>>({ "TD": true })
+  const [expandedBanks, setExpandedBanks] = useState<Record<string, boolean>>({ "TD (One-Click 2026)": true, "CIBC (New 2025/2026)": true })
   const [activePortfolio, setActivePortfolio] = useState<Portfolio | null>(null)
   const [timeframe, setTimeframe] = useState<string>('1w')
   const [chartData, setChartData] = useState<ChartData[]>([])

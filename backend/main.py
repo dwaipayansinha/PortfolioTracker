@@ -22,30 +22,36 @@ app.add_middleware(
 )
 
 PORTFOLIOS = {
-    "TD Comfort (ETF Equivalents)": {
-        "TD Comfort Conservative (TCON)": "TCON.TO",
-        "TD Comfort Balanced (TBAL)": "TBAL.TO",
-        "TD Comfort Growth (TGRO)": "TGRO.TO",
-        "TD Comfort Aggressive (TEQT)": "TEQT.TO",
+    "TD (One-Click 2026)": {
+        "TD Conservative ETF Portfolio": "TCON.TO",
+        "TD Balanced ETF Portfolio": "TBAL.TO",
+        "TD Growth ETF Portfolio": "TGRO.TO",
+        "TD All-Equity ETF Portfolio": "TEQT.TO",
     },
-    "BMO (Asset Allocation)": {
-        "BMO Conservative (ZCON)": "ZCON.TO",
-        "BMO Balanced (ZBAL)": "ZBAL.TO",
-        "BMO Growth (ZGRO)": "ZGRO.TO",
-        "BMO All-Equity (ZEQT)": "ZEQT.TO",
+    "BMO (Income & Growth)": {
+        "BMO Conservative Portfolio": "ZCON.TO",
+        "BMO Balanced Portfolio": "ZBAL.TO",
+        "BMO Growth Portfolio": "ZGRO.TO",
+        "BMO All-Equity Portfolio": "ZEQT.TO",
+        "BMO All-Equity Cash Flow (ZEQT.T)": "ZEQT.TO", # Using ZEQT as proxy if .T is sparse
+    },
+    "CIBC (New 2025/2026)": {
+        "CIBC Balanced ETF Portfolio": "CBLN.TO",
+        "CIBC Balanced Growth ETF Portfolio": "CGRW.TO",
+        "CIBC All-Equity (Avantis Partnership)": "CAGE.TO",
     },
     "iShares (RBC Partner)": {
-        "iShares Conservative (XCON)": "XCON.TO",
-        "iShares Balanced (XBAL)": "XBAL.TO",
-        "iShares Growth (XGRO)": "XGRO.TO",
-        "iShares All-Equity (XEQT)": "XEQT.TO",
+        "iShares Core Conservative (XCON)": "XCON.TO",
+        "iShares Core Balanced (XBAL)": "XBAL.TO",
+        "iShares Core Growth (XGRO)": "XGRO.TO",
+        "iShares Core All-Equity (XEQT)": "XEQT.TO",
     },
     "Vanguard (Global Standard)": {
         "Vanguard Conservative (VCNS)": "VCNS.TO",
         "Vanguard Balanced (VBAL)": "VBAL.TO",
         "Vanguard Growth (VGRO)": "VGRO.TO",
         "Vanguard All-Equity (VEQT)": "VEQT.TO",
-        "Scotia Balanced (BNS)": "BNS.TO",
+        "Scotia Balanced Exposure (BNS)": "BNS.TO",
     }
 }
 
