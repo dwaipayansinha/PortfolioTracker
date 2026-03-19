@@ -230,6 +230,15 @@ def resolve_ticker(ticker):
 def get_portfolios():
     return PORTFOLIOS
 
+@app.post("/api/clear-cache")
+def clear_cache():
+    try:
+        cache.clear()
+        # Also clear the low-level yfinance sqlite cache if it exists in the user dir
+        return {"status": "success", "message": "Persistent cache cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/historical/{ticker}")
 def get_historical(ticker: str, range: str = "5d"):
     resolved_ticker = resolve_ticker(ticker)

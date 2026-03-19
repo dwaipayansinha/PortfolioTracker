@@ -3,10 +3,10 @@ import axios from 'axios'
 import { AdMob, BannerAdPosition, BannerAdSize } from '@capacitor-community/admob'
 import { Capacitor } from '@capacitor/core'
 import {
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
+  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, Line
 } from 'recharts'
 import {
-  TrendingUp, AlertCircle, Briefcase, Activity, CheckCircle, XCircle, ChevronDown, ChevronRight, RefreshCw, Download
+  TrendingUp, AlertCircle, Briefcase, Activity, CheckCircle, XCircle, ChevronDown, ChevronRight, RefreshCw, Download, Trash2
 } from 'lucide-react'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
@@ -188,6 +188,17 @@ function App() {
     fetchData()
   }
 
+  const handleClearCache = async () => {
+    if (confirm("Are you sure you want to clear all cached data? The app will reload.")) {
+      try {
+        await axios.post(`${API_BASE}/clear-cache`)
+        window.location.reload()
+      } catch (err) {
+        alert("Failed to clear cache")
+      }
+    }
+  }
+
   useEffect(() => {
     axios.get(`${API_BASE}/portfolios`)
       .then(res => {
@@ -217,8 +228,28 @@ function App() {
     setExpandedBanks(prev => ({ ...prev, [bank]: !prev[bank] }))
   }
 
+  // Calculate trend line data points
+  const getTrendData = () => {
+    if (!analysis || chartData.length < 2) return []
+    
+    const lastPoint = chartData[chartData.length - 1]
+    const firstPoint = chartData[0]
+    
+    // Create a trend line from first point value to the forecast value
+    return [
+      { time: firstPoint.time, value: firstPoint.value },
+      { time: lastPoint.time, value: analysis.metrics.forecast30d }
+    ]
+  }
+
+  const getTrendColor = () => {
+    if (analysis?.recommendation === 'Invest') return '#4ade80'
+    if (analysis?.recommendation === 'Remove') return '#f87171'
+    return '#facc15'
+  }
+
   const renderReasonIcon = (reason: string) => {
-    if (reason.includes("Bullish") || reason.includes(">2% growth") || reason.includes("Favorable") || reason.includes("Golden Cross")) {
+    if (reason.includes("Bullish") || reason.includes(">1.5% growth") || reason.includes("Strong") || reason.includes("Golden Cross")) {
       return <CheckCircle className="reason-icon positive" size={18} />
     }
     if (reason.includes("Bearish") || reason.includes("drop") || reason.includes("Poor") || reason.includes("Death Cross")) {
@@ -236,8 +267,7 @@ function App() {
       if (timeframe === '1d') {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
-      if (timeframe === '1w') {
-        // Show Day name + Date for 1 week
+      if (timeframe === '1w' || timeframe === '5d') {
         return date.toLocaleDateString([], { weekday: 'short', day: 'numeric' })
       }
       if (timeframe === '1m' || timeframe === '6m' || timeframe === '1y') {
@@ -297,7 +327,7 @@ function App() {
           ))}
         </div>
 
-        {/* Update Section */}
+        {/* Update & Cache Section */}
         <div className="sidebar-footer" style={{ padding: '20px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
           {updateStatus && (
             <div style={{ 
@@ -324,11 +354,29 @@ function App() {
               alignItems: 'center', 
               gap: '10px',
               justifyContent: 'center',
-              backgroundColor: 'rgba(255,255,255,0.05)'
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              marginBottom: '10px'
             }}
           >
             <Download size={16} />
             <span>Check for updates</span>
+          </button>
+
+          <button 
+            className="portfolio-item" 
+            onClick={handleClearCache}
+            style={{ 
+              width: '100%', 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px',
+              justifyContent: 'center',
+              color: '#f87171',
+              backgroundColor: 'rgba(248, 113, 113, 0.05)'
+            }}
+          >
+            <Trash2 size={16} />
+            <span>Clear Cache</span>
           </button>
         </div>
       </div>
@@ -447,6 +495,18 @@ function App() {
                       fill="url(#colorValue)" 
                       animationDuration={400}
                     />
+                    {analysis && (
+                      <Line
+                        type="monotone"
+                        data={getTrendData()}
+                        dataKey="value"
+                        stroke={getTrendColor()}
+                        strokeWidth={2}
+                        strokeDasharray="5 5"
+                        dot={false}
+                        activeDot={false}
+                      />
+                    )}
                   </AreaChart>
                 </ResponsiveContainer>
               )}
