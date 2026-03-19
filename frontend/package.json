@@ -1,7 +1,7 @@
 {
   "name": "portfolio-tracker",
   "private": true,
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Canadian Bank Investment Portfolio Tracker",
   "author": "Don Sinha",
   "repository": {
@@ -15,41 +15,28 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "package": "electron-forge package",
-    "start": "electron-forge start",
-    "make": "electron-forge make",
-    "build:free": "vite build --mode free",
-    "build:paid": "vite build --mode paid",
-    "cap:sync": "npx cap sync android"
+    "dist": "npm run build && electron-builder --win"
   },
   "dependencies": {
     "@capacitor-community/admob": "^7.2.0",
     "@capacitor/android": "^8.2.0",
     "@capacitor/cli": "^7.6.0",
-    "@capacitor/core": "^8.2.0",
+    "@capacitor/core": "^7.6.0",
     "axios": "^1.8.1",
-    "electron-squirrel-startup": "^1.0.1",
-    "electron-updater": "^6.8.3",
+    "electron-updater": "^6.3.9",
     "lucide-react": "^0.479.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.15.1"
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.11.1",
-    "@electron-forge/maker-deb": "^7.11.1",
-    "@electron-forge/maker-rpm": "^7.11.1",
-    "@electron-forge/maker-squirrel": "^7.11.1",
-    "@electron-forge/maker-zip": "^7.11.1",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.11.1",
-    "@electron-forge/plugin-fuses": "^7.11.1",
-    "@electron/fuses": "^1.8.0",
     "@eslint/js": "^9.13.0",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",
     "concurrently": "^9.2.1",
     "electron": "^41.0.3",
+    "electron-builder": "^26.8.1",
     "eslint": "^9.13.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.14",
@@ -63,6 +50,7 @@
   "build": {
     "appId": "com.portfolio.tracker",
     "productName": "Portfolio Tracker",
+    "copyright": "Copyright © 2026 Don Sinha",
     "directories": {
       "output": "release"
     },
@@ -73,19 +61,22 @@
     "extraResources": [
       {
         "from": "../backend/dist/portfolio_api.exe",
-        "to": "backend/portfolio_api.exe"
+        "to": "portfolio_api.exe"
       }
     ],
     "win": {
-      "target": "nsis",
+      "target": [
+        "portable"
+      ],
+      "icon": "public/electron-vite.svg",
       "forceCodeSigning": false
     },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Portfolio Tracker"
-    }
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "dwaipayansinha",
+        "repo": "PortfolioTracker"
+      }
+    ]
   }
 }

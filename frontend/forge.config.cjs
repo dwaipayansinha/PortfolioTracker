@@ -5,6 +5,8 @@ const path = require('path');
 module.exports = {
   packagerConfig: {
     asar: true,
+    name: 'PortfolioTracker',
+    executableName: 'PortfolioTracker',
     extraResource: [
       path.join(__dirname, '../backend/dist/portfolio_api.exe')
     ],
@@ -14,13 +16,28 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        name: 'portfolio_tracker',
+        name: 'PortfolioTracker',
+        setupExe: 'PortfolioTrackerSetup.exe',
       },
     },
     {
       name: '@electron-forge/maker-zip',
       platforms: ['win32'],
     },
+    {
+      name: '@electron-forge/maker-wix',
+      config: {
+        language: 1033,
+        manufacturer: 'Don Sinha',
+        description: 'Canadian Bank Investment Portfolio Tracker',
+        name: 'Portfolio Tracker',
+        shortcutName: 'Portfolio Tracker',
+        programFilesFolderName: 'PortfolioTracker',
+        ui: {
+          chooseDirectory: true,
+        },
+      }
+    }
   ],
   plugins: [
     {

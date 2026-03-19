@@ -83,7 +83,6 @@ function App() {
     // Initialize AdMob if mobile and free
     if (isMobile && !isPaid) {
       AdMob.initialize({
-        requestTrackingAuthorization: true,
       }).then(() => {
         AdMob.showBanner({
           adId: 'ca-app-pub-3940256099942544/6300978111', // Test Ad ID

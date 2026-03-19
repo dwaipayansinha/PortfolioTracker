@@ -1,70 +1,36 @@
-# Canadian Bank Investment Portfolio Tracker (v1.2.0)
+# Canadian Bank Investment Portfolio Tracker (v1.3.0)
 
-A modern desktop application built with Electron, React, and Python (FastAPI) to track TD, BMO, RBC, Scotiabank, and CIBC portfolios, visualize their historical performance, and get AI-powered investment recommendations using a hybrid quantitative/ML approach.
+A professional desktop application built with Electron, React, and Python (FastAPI) to track TD, BMO, RBC, Scotiabank, and CIBC portfolios, featuring AI-powered investment recommendations.
 
 ## Documentation Index
-For detailed technical information, please refer to the following files:
 - [TECHNOLOGY.md](./TECHNOLOGY.md) - Full breakdown of the multi-source tech stack.
-- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Deep dive into AI logic, fallback architecture, and packaging.
+- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Deep dive into AI logic, sequential startup, and Program Files deployment.
 
-## Installation & User Guide
+## Installation & User Guide (Windows 10/11)
 
-### 1. Using the Standalone Installer (Recommended)
-The project includes a fully packaged installer for **Windows 10 & 11**. This version is completely standalone and does not require Python or Node.js.
+### 1. Professional Installation (Recommended)
+This method installs the software to `C:\Program Files` and creates desktop/start menu shortcuts.
 
-**Installer Location:**
-`frontend/out/make/squirrel.windows/x64/portfolio-tracker-1.2.0 Setup.exe`
+**Steps:**
+1.  Navigate to the project root directory.
+2.  Right-click **`Install-PortfolioTracker.ps1`** and select **"Run with PowerShell"**.
+3.  Accept the Administrator prompt if asked.
+4.  Once complete, launch **"Portfolio Tracker"** from your Desktop or Start Menu.
 
-**Installation Steps:**
-1.  **Run the Setup**: Double-click the `.exe` file.
-2.  **Security Note**: Since this is a private build, Windows may show a "Windows protected your PC" popup. Click **"More info"** and then **"Run anyway"**.
-3.  **Automatic Setup**: The app installs automatically to your local user directory and creates shortcuts.
-4.  **Auto-Updates**: The app will automatically check for and install newer versions on startup.
-
-### 2. Android Application (Mobile)
-The mobile version is built using **Capacitor**. It supports two variants: **Free** (Ad-supported) and **Paid** (Ad-free).
-
-**Build Instructions:**
-1.  **Environment Setup**:
-    - For Free: Ensure `.env.free` has your AdMob and Backend URL.
-    - For Paid: Ensure `.env.paid` has your Backend URL.
-2.  **Generate Free Variant**:
-    ```bash
-    npm run build:free
-    npx cap sync android
-    ```
-3.  **Generate Paid Variant**:
-    ```bash
-    npm run build:paid
-    npx cap sync android
-    ```
-4.  **Open in Android Studio**:
-    ```bash
-    npx cap open android
-    ```
-    *Inside Android Studio, you can configure Product Flavors to manage different Application IDs for the Play Store.*
-
-### 3. Running from Source (Development)
-If you wish to modify the code:
-
-**Step 1: Start the Python Backend**
-```bash
-cd backend
-.\venv\Scripts\activate
-python main.py
-```
-
-**Step 2: Start the Electron Frontend**
-```bash
-cd frontend
-npm run dev
-```
+### 2. Manual/Portable Use
+You can run the application directly without installing:
+- **Path:** `frontend/release/win-unpacked/Portfolio Tracker.exe`
+- **Behavior:** The app will automatically spawn the Python backend in the background and perform a health check before showing the GUI.
 
 ## Core Features
-- **Big Five Coverage:** Complete tracking for TD, BMO, RBC, Scotiabank, and CIBC suites.
-- **Fail-Safe Data:** Triple-API fallback (Yahoo -> FMP -> Twelve Data) ensuring maximum uptime.
-- **Sequential History:** Intelligent fallback for new funds (tries Max -> 10Y -> ... -> 1D automatically).
-- **Hybrid Analysis:** Combines Moving Averages and Sharpe Ratios with Machine Learning price forecasting.
-- **Persistent Cache:** Displays last successful data even when offline or rate-limited.
-- **Auto-Updates:** Native background updates via GitHub Releases.
-- **Self-Healing:** Automatic ticker resolution for renamed or retired funds.
+- **Sequential Startup**: Backend starts first with an automated health check before the GUI appears.
+- **Program Files Support**: Dedicated installer script for standard Windows deployment.
+- **Fail-Safe Data**: Triple-API fallback (Yahoo -> FMP -> Twelve Data).
+- **Sequential History**: Intelligent timeframe fallback (Max -> 10Y -> ... -> 1D).
+- **AI Recommendation Engine**: Hybrid Quant/ML models for Invest/Remove signals.
+- **Persistent Cache**: Offline reliability via disk-based data storage.
+- **Auto-Updates**: Checks for newer versions on startup via GitHub.
+
+## Android Application (Mobile)
+Supports **Free** (Ad-supported) and **Paid** (Ad-free) variants.
+Refer to [IMPLEMENTATION.md](./IMPLEMENTATION.md) for mobile build instructions.

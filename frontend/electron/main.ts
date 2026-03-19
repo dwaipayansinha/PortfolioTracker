@@ -3,6 +3,7 @@ import path from 'path'
 import { spawn, ChildProcess } from 'child_process'
 import { fileURLToPath } from 'url'
 import { autoUpdater } from 'electron-updater'
+import axios from 'axios'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -11,15 +12,6 @@ const __dirname = path.dirname(__filename)
 autoUpdater.autoDownload = true
 autoUpdater.allowPrerelease = false
 
-// The built directory structure
-//
-// ├─┬─┬ dist
-// │ │ └── index.html
-// │ │
-// │ ├─┬ dist-electron
-// │ │ ├── main.js
-// │ │ └── preload.js
-// │
 process.env.DIST = path.join(__dirname, '../dist')
 process.env.VITE_PUBLIC = app.isPackaged ? process.env.DIST : path.join(process.env.DIST, '../public')
 
@@ -33,10 +25,9 @@ function startBackend() {
   let backendPath: string
 
   if (isPackaged) {
-    // In production, the executable will be in the resources folder
+    // electron-builder puts extraResources in the resources folder
     backendPath = path.join(process.resourcesPath, 'portfolio_api.exe')
   } else {
-    // In development, it's in the backend/dist folder
     backendPath = path.join(__dirname, '..', '..', 'backend', 'dist', 'portfolio_api.exe')
   }
 
@@ -54,14 +45,33 @@ function startBackend() {
   backendProcess.stderr?.on('data', (data) => {
     console.error(`Backend Error: ${data}`)
   })
-
-  backendProcess.on('close', (code) => {
-    console.log(`Backend process exited with code ${code}`)
-  })
 }
 
-function createWindow() {
+async function waitForBackend(url: string, attempts = 10): Promise<boolean> {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await axios.get(url)
+      return true
+    } catch (e) {
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+  }
+  return false
+}
+
+async function createWindow() {
+  // 1. START BACKEND FIRST
+  startBackend()
+
+  // 2. WAIT FOR BACKEND TO BE READY (max 10 seconds)
+  // We check the health of the API before showing the GUI
+  if (app.isPackaged) {
+     await waitForBackend('http://127.0.0.1:8000/api/portfolios')
+  }
+
+  // 3. NOW CREATE THE GUI
   win = new BrowserWindow({
+    title: 'Portfolio Tracker',
     icon: path.join(process.env.VITE_PUBLIC, 'electron-vite.svg'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -70,20 +80,17 @@ function createWindow() {
     height: 800,
     minWidth: 800,
     minHeight: 600,
+    show: false // Don't show until ready-to-show
   })
 
-  // Start the backend
-  startBackend()
+  win.once('ready-to-show', () => {
+    win?.show()
+  })
 
   // Check for updates on startup
   if (app.isPackaged) {
     autoUpdater.checkForUpdatesAndNotify()
   }
-
-  // Test active push message to Renderer-process.
-  win.webContents.on('did-finish-load', () => {
-    win?.webContents.send('main-process-message', (new Date).toLocaleString())
-  })
 
   if (VITE_DEV_SERVER_URL) {
     win.loadURL(VITE_DEV_SERVER_URL)
@@ -118,23 +125,18 @@ app.on('will-quit', () => {
 autoUpdater.on('checking-for-update', () => {
   win?.webContents.send('update-status', 'Checking for update...')
 })
-
 autoUpdater.on('update-available', (info) => {
   win?.webContents.send('update-status', `Update available: v${info.version}`)
 })
-
 autoUpdater.on('update-not-available', () => {
   win?.webContents.send('update-status', 'You are on the latest version.')
 })
-
 autoUpdater.on('error', (err) => {
   win?.webContents.send('update-status', `Error: ${err.message}`)
 })
-
 autoUpdater.on('download-progress', (progressObj) => {
   win?.webContents.send('update-status', `Downloading: ${Math.round(progressObj.percent)}%`)
 })
-
 autoUpdater.on('update-downloaded', () => {
   win?.webContents.send('update-status', 'Update downloaded; restarting...')
   setTimeout(() => {
