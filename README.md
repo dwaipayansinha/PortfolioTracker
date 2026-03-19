@@ -29,20 +29,24 @@ For detailed technical information, please refer to the following files:
    npm install
    ```
 
-## Running the Application
+## Installation & User Guide
 
-### Option 1: Using the Standalone Installer (Recommended for Users)
-A fully packaged installer has been generated for Windows 10 & 11. This version bundles the Python backend and all runtimes automatically.
+### 1. Using the Standalone Installer (Recommended)
+The project includes a fully packaged installer for **Windows 10 & 11**. This version is completely standalone and does not require Python or Node.js.
 
 **Installer Location:**
 `frontend/out/make/squirrel.windows/x64/portfolio-tracker-1.0.0 Setup.exe`
 
-Run this file on any Windows computer to install the Portfolio Tracker as a standard desktop application.
+**Installation Steps:**
+1.  **Run the Setup**: Double-click the `.exe` file.
+2.  **Security Note**: Since this is a private build, Windows may show a "Windows protected your PC" popup. Click **"More info"** and then **"Run anyway"**.
+3.  **Automatic Setup**: The installer will automatically install the app to your local user directory.
+4.  **Launch**: Once finished, the app will launch automatically. You will find a **"Portfolio Tracker"** shortcut on your Desktop and in your Start Menu.
 
-### Option 2: Running from Source (Development)
-You need to run both the backend and the frontend concurrently.
+### 2. Running from Source (Development)
+If you wish to modify the code and run the development version:
 
-**Step 1:** Start the Python Backend
+**Step 1: Start the Python Backend**
 ```bash
 cd backend
 .\venv\Scripts\activate
@@ -50,7 +54,7 @@ python main.py
 ```
 *(The API will start at http://127.0.0.1:8000)*
 
-**Step 2:** Start the Electron Frontend
+**Step 2: Start the Electron Frontend**
 In a new terminal:
 ```bash
 cd frontend
