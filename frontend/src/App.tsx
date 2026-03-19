@@ -191,19 +191,21 @@ function App() {
   useEffect(() => {
     axios.get(`${API_BASE}/portfolios`)
       .then(res => {
-        setGroupedPortfolios(res.data)
-        // Set first portfolio as active by default
-        const banks = Object.keys(res.data)
-        if (banks.length > 0) {
+        if (res.data && Object.keys(res.data).length > 0) {
+          setGroupedPortfolios(res.data)
+          // Set first portfolio as active by default
+          const banks = Object.keys(res.data)
           const firstBank = banks[0]
           const firstPortfolioName = Object.keys(res.data[firstBank])[0]
           const firstTicker = res.data[firstBank][firstPortfolioName]
           setActivePortfolio({ name: firstPortfolioName, ticker: firstTicker })
+        } else {
+          setError(`No portfolios found at ${API_BASE}. The backend may be initialized but empty.`)
         }
       })
       .catch(err => {
         console.error("Failed to load portfolios", err)
-        setError("Could not connect to backend server. Please ensure the Python API is running.")
+        setError(`Could not connect to backend server at ${API_BASE}. Please ensure the Python API is running and reachable.`)
       })
   }, [])
 
@@ -333,6 +335,29 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
+        {!activePortfolio && error && (
+          <div className="loading-overlay" style={{ flexDirection: 'column', gap: '20px', textAlign: 'center', padding: '0 40px', height: '100vh' }}>
+            <AlertCircle size={64} color="#f87171" />
+            <div>
+              <h2 style={{ color: '#f87171', marginBottom: '10px' }}>System Initialization Error</h2>
+              <p style={{ color: '#888', maxWidth: '600px', fontSize: '1.1rem' }}>{error}</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              style={{ 
+                backgroundColor: '#2563eb', 
+                color: 'white', 
+                padding: '12px 32px', 
+                borderRadius: '8px',
+                fontWeight: '600',
+                marginTop: '20px'
+              }}
+            >
+              Reload Application
+            </button>
+          </div>
+        )}
+
         {activePortfolio && (
           <>
             <div className="header">

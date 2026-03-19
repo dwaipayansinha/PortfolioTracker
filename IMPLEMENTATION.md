@@ -50,6 +50,7 @@ The software is designed to reside in **`C:\Program Files\Portfolio Tracker`**. 
 
 ## Error Handling & Reliability
 
+- **Initialization Checks:** The frontend now verifies connectivity to the backend API (`/api/portfolios`) at startup. If the backend is unreachable or returns no data, a full-screen error message is displayed, showing the exact URL (`API_BASE`) and troubleshooting steps.
 - **Multi-Source Fallback:** Triple-source data pipeline (Yahoo ➡️ FMP ➡️ Twelve Data).
 - **Sequential History:** Intelligent fallback for new funds (tries Max ➡️ 10Y ➡️ ... ➡️ 1D automatically).
 - **Persistent Data Caching:** File-based cache using `diskcache` for offline reliability.
