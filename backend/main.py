@@ -8,9 +8,16 @@ import warnings
 import os
 import json
 import requests
+import diskcache
+from datetime import datetime
+
 warnings.filterwarnings("ignore")
 
 app = FastAPI()
+
+# Setup persistent disk cache
+# This will create a 'cache' directory that persists between runs
+cache = diskcache.Cache("api_cache")
 
 # Allow CORS for local development
 app.add_middleware(
@@ -33,7 +40,7 @@ PORTFOLIOS = {
         "BMO Balanced Portfolio": "ZBAL.TO",
         "BMO Growth Portfolio": "ZGRO.TO",
         "BMO All-Equity Portfolio": "ZEQT.TO",
-        "BMO All-Equity Cash Flow (ZEQT.T)": "ZEQT.TO", # Using ZEQT as proxy if .T is sparse
+        "BMO All-Equity Cash Flow (ZEQT.T)": "ZEQT.TO",
     },
     "CIBC (New 2025/2026)": {
         "CIBC Balanced ETF Portfolio": "CBLN.TO",
@@ -87,10 +94,7 @@ def find_portfolio_name(ticker):
     return None
 
 def resolve_ticker(ticker):
-    # Check if we already have a rename in memory
     current_ticker = get_renamed_ticker(ticker)
-    
-    # Try fetching small amount of data to verify if it's currently valid
     try:
         data = yf.download(current_ticker, period="1d", progress=False)
         if not data.empty:
@@ -98,65 +102,58 @@ def resolve_ticker(ticker):
     except:
         pass
         
-    # If it failed, let's search by name
     name = find_portfolio_name(ticker)
     if name:
         try:
-            # Yahoo Finance search API (internal)
             url = f"https://query2.finance.yahoo.com/v1/finance/search?q={name}"
             headers = {'User-Agent': 'Mozilla/5.0'}
             res = requests.get(url, headers=headers, timeout=5)
             search_data = res.json()
             if search_data.get('quotes'):
                 for quote in search_data['quotes']:
-                    # Look for something that matches the name closely but has a DIFFERENT symbol than our failed one
                     if quote.get('symbol') and quote.get('symbol') != current_ticker:
                          new_ticker = quote['symbol']
-                         # Verify the new ticker works before committing to memory
                          verify = yf.download(new_ticker, period="1d", progress=False)
                          if not verify.empty:
                              save_rename(ticker, new_ticker)
                              return new_ticker
         except Exception as e:
             print(f"Search failed for {name}: {e}")
-            
-    return current_ticker # Return original (failed) ticker if no replacement found
+    return current_ticker
 
 @app.get("/api/portfolios")
 def get_portfolios():
     return PORTFOLIOS
 
 @app.get("/api/historical/{ticker}")
-def get_historical(ticker: str, range: str = "1y"):
-    """
-    range options: 1d, 1w, 1m, 6m, 1y, 2y, 5y, 10y, max
-    """
+def get_historical(ticker: str, range: str = "1w"):
     resolved_ticker = resolve_ticker(ticker)
+    cache_key = f"hist_{resolved_ticker}_{range}"
     
+    range_to_period = {
+        "1d": "1d", "1w": "5d", "1m": "1mo", "6m": "6mo",
+        "1y": "1y", "5y": "5y", "10y": "10y", "max": "max"
+    }
     interval_map = {
-        "1d": "5m",
-        "1w": "15m",
-        "1m": "1d",
-        "6m": "1d",
-        "1y": "1d",
-        "5y": "1wk",
-        "10y": "1mo",
-        "max": "1mo"
+        "1d": "5m", "1w": "1h", "1m": "1d", "6m": "1d",
+        "1y": "1d", "5y": "1wk", "10y": "1mo", "max": "1mo"
     }
     
-    yf_period = range
-    if range == "1w":
-        yf_period = "5d"
-        
+    yf_period = range_to_period.get(range, "1y")
     interval = interval_map.get(range, "1d")
     
     try:
         data = yf.download(resolved_ticker, period=yf_period, interval=interval, progress=False)
         if data.empty:
-            # Fallback to daily interval if intraday fails
             data = yf.download(resolved_ticker, period=yf_period, interval="1d", progress=False)
+        if data.empty and yf_period != "max":
+            data = yf.download(resolved_ticker, period="max", interval="1d", progress=False)
             
         if data.empty:
+             # If API fails, try to return from cache regardless of age
+             cached_val = cache.get(cache_key)
+             if cached_val:
+                 return cached_val
              raise HTTPException(status_code=404, detail=f"No data found for ticker {resolved_ticker}")
              
         if isinstance(data.columns, pd.MultiIndex):
@@ -165,33 +162,40 @@ def get_historical(ticker: str, range: str = "1y"):
         data.reset_index(inplace=True)
         date_col = data.columns[0]
         data['time'] = data[date_col].astype(str)
+        result = data[['time', 'Close']].rename(columns={'Close': 'value'}).dropna().to_dict(orient='records')
         
-        result = data[['time', 'Close']].rename(columns={'Close': 'value'}).dropna()
-        return result.to_dict(orient='records')
+        # Save to cache on success
+        cache.set(cache_key, result, expire=3600) # Expire after 1 hour but we'll use stale data on error
+        return result
     except Exception as e:
+        # On any exception, try to fallback to cache
+        cached_val = cache.get(cache_key)
+        if cached_val:
+            return cached_val
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/analysis/{ticker}")
 def get_analysis(ticker: str):
-    """
-    Hybrid analysis: Traditional + ML
-    """
     resolved_ticker = resolve_ticker(ticker)
+    cache_key = f"analysis_{resolved_ticker}"
     
     try:
-        # Download 2 years of daily data for analysis
         data = yf.download(resolved_ticker, period="2y", interval="1d", progress=False)
         if data.empty:
+            data = yf.download(resolved_ticker, period="max", interval="1d", progress=False)
+            
+        if data.empty:
+             cached_val = cache.get(cache_key)
+             if cached_val: return cached_val
              raise HTTPException(status_code=404, detail=f"No data found for analysis on {resolved_ticker}")
              
         if isinstance(data.columns, pd.MultiIndex):
             data.columns = data.columns.droplevel(1)
             
         closes = data['Close'].dropna()
-        if len(closes) < 30: # Reduced from 50 for better availability
+        if len(closes) < 30:
              return {"recommendation": "Diversify", "confidence": 50, "reasons": ["Insufficient data for full analysis"]}
              
-        # Traditional Metrics
         sma_50 = closes.rolling(window=50).mean().iloc[-1] if len(closes) >= 50 else closes.mean()
         sma_200 = closes.rolling(window=200).mean().iloc[-1] if len(closes) >= 200 else sma_50
         current_price = closes.iloc[-1]
@@ -201,7 +205,6 @@ def get_analysis(ticker: str):
         annual_return = returns.mean() * 252
         sharpe = annual_return / volatility if volatility != 0 else 0
         
-        # ML Forecasting
         lookback = min(100, len(closes))
         y = closes.values[-lookback:]
         X = np.arange(len(y)).reshape(-1, 1)
@@ -210,53 +213,22 @@ def get_analysis(ticker: str):
         future_X = np.array([[len(y) + 30]])
         forecast_price = model.predict(future_X)[0]
         
-        # Scoring System
         score = 0
         reasons = []
-        
-        if current_price > sma_50:
-            score += 1
-            reasons.append("Price is above 50-day SMA (Bullish).")
-        else:
-            score -= 1
-            reasons.append("Price is below 50-day SMA (Bearish).")
+        if current_price > sma_50: score += 1; reasons.append("Price is above 50-day SMA (Bullish).")
+        else: score -= 1; reasons.append("Price is below 50-day SMA (Bearish).")
+        if sma_50 > sma_200: score += 1; reasons.append("Golden Cross active (50SMA > 200SMA).")
+        else: score -= 1; reasons.append("Death Cross active (50SMA < 200SMA).")
+        if sharpe > 0.5: score += 1; reasons.append(f"Favorable risk-adjusted returns (Sharpe: {sharpe:.2f}).")
+        elif sharpe < 0: score -= 1; reasons.append(f"Poor risk-adjusted returns (Sharpe: {sharpe:.2f}).")
+        if forecast_price > current_price * 1.02: score += 2; reasons.append(f"ML Model forecasts >2% growth in 30 days.")
+        elif forecast_price < current_price: score -= 2; reasons.append(f"ML Model forecasts price drop.")
             
-        if sma_50 > sma_200:
-            score += 1
-            reasons.append("Golden Cross active (50SMA > 200SMA).")
-        else:
-            score -= 1
-            reasons.append("Death Cross active (50SMA < 200SMA).")
+        rec = "Invest" if score >= 2 else "Remove" if score <= -2 else "Diversify"
+        conf = min(100, 50 + abs(score) * 10) if rec != "Diversify" else 60
             
-        if sharpe > 0.5:
-            score += 1
-            reasons.append(f"Favorable risk-adjusted returns (Sharpe: {sharpe:.2f}).")
-        elif sharpe < 0:
-            score -= 1
-            reasons.append(f"Poor risk-adjusted returns (Sharpe: {sharpe:.2f}).")
-            
-        if forecast_price > current_price * 1.02:
-            score += 2
-            reasons.append(f"ML Model forecasts >2% growth in 30 days.")
-        elif forecast_price < current_price:
-            score -= 2
-            reasons.append(f"ML Model forecasts price drop.")
-            
-        # Decision
-        if score >= 2:
-            rec = "Invest"
-            conf = min(100, 50 + score * 10)
-        elif score <= -2:
-            rec = "Remove"
-            conf = min(100, 50 + abs(score) * 10)
-        else:
-            rec = "Diversify"
-            conf = 60
-            
-        return {
-            "recommendation": rec,
-            "confidence": conf,
-            "reasons": reasons,
+        result = {
+            "recommendation": rec, "confidence": conf, "reasons": reasons,
             "metrics": {
                 "currentPrice": round(float(current_price), 2),
                 "sma50": round(float(sma_50), 2),
@@ -265,8 +237,11 @@ def get_analysis(ticker: str):
                 "forecast30d": round(float(forecast_price), 2)
             }
         }
-        
+        cache.set(cache_key, result, expire=3600)
+        return result
     except Exception as e:
+        cached_val = cache.get(cache_key)
+        if cached_val: return cached_val
         raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":

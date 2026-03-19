@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
@@ -73,19 +73,38 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [retryTimer, setRetryTimer] = useState<number>(60)
   const [updateStatus, setUpdateStatus] = useState<string | null>(null)
+  
+  // Ref to track the current request ID to avoid race conditions
+  const requestCounter = useRef(0)
+  // Ref for debounce timer
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     // Listen for update status from main process
-    if (window.ipcRenderer) {
-      window.ipcRenderer.on('update-status', (_event, status: string) => {
-        setUpdateStatus(status)
-        // Auto-clear success messages after 5 seconds
-        if (status.includes("latest version") || status.includes("Error")) {
-          setTimeout(() => setUpdateStatus(null), 5000)
-        }
-      })
+    const handleUpdate = (_event: any, status: string) => {
+      setUpdateStatus(status)
+      if (status.includes("latest version") || status.includes("Error")) {
+        setTimeout(() => setUpdateStatus(null), 5000)
+      }
     }
-  }, [])
+    
+    if (window.ipcRenderer) {
+      window.ipcRenderer.on('update-status', handleUpdate)
+    }
+
+    // Set up hourly refresh timer (3,600,000 ms)
+    const refreshInterval = setInterval(() => {
+      console.log("Hourly auto-refresh triggered")
+      fetchData()
+    }, 3600000)
+
+    return () => {
+      if (window.ipcRenderer) {
+        window.ipcRenderer.off('update-status', handleUpdate)
+      }
+      clearInterval(refreshInterval)
+    }
+  }, [activePortfolio, timeframe]) // Re-run refresh logic if portfolio/timeframe changes manually
 
   useEffect(() => {
     let timer: NodeJS.Timeout
@@ -102,28 +121,46 @@ function App() {
   const fetchData = async () => {
     if (!activePortfolio) return
     
+    // Clear any pending debounce timers
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current)
+    }
+
+    // Assign a new request ID immediately to invalidate any in-flight requests
+    const currentRequestId = ++requestCounter.current
+    
     setLoading(true)
     setError(null)
     setAnalysis(null)
     setChartData([])
     setRetryTimer(60)
     
-    try {
-      const fetchChart = axios.get(`${API_BASE}/historical/${activePortfolio.ticker}?range=${timeframe}`)
-      const fetchAnalysis = axios.get(`${API_BASE}/analysis/${activePortfolio.ticker}`)
-      
-      const [chartRes, analysisRes] = await Promise.all([fetchChart, fetchAnalysis])
-      
-      if (chartRes.data.length === 0) throw new Error("No historical data available")
-      
-      setChartData(chartRes.data)
-      setAnalysis(analysisRes.data)
-    } catch (err: any) {
-      console.error("Failed to load data", err)
-      setError(err.response?.data?.detail || err.message || "An unexpected error occurred")
-    } finally {
-      setLoading(false)
-    }
+    // Debounce the actual API call by 400ms to avoid spamming on fast clicks
+    debounceTimer.current = setTimeout(async () => {
+      try {
+        const fetchChart = axios.get(`${API_BASE}/historical/${activePortfolio.ticker}?range=${timeframe}`)
+        const fetchAnalysis = axios.get(`${API_BASE}/analysis/${activePortfolio.ticker}`)
+        
+        const [chartRes, analysisRes] = await Promise.all([fetchChart, fetchAnalysis])
+        
+        // Final check: if a newer request has started while we were waiting, ignore results
+        if (currentRequestId !== requestCounter.current) return
+
+        if (!chartRes.data || chartRes.data.length === 0) throw new Error("No data available for this period")
+        
+        setChartData(chartRes.data)
+        setAnalysis(analysisRes.data)
+      } catch (err: any) {
+        if (currentRequestId !== requestCounter.current) return
+
+        console.error("Failed to load data", err)
+        setError(err.response?.data?.detail || err.message || "An unexpected error occurred")
+      } finally {
+        if (currentRequestId === requestCounter.current) {
+          setLoading(false)
+        }
+      }
+    }, 400)
   }
 
   const handleRetry = () => {
@@ -170,11 +207,20 @@ function App() {
   const formatXAxis = (tickItem: string) => {
     try {
       if (!tickItem) return ""
-      if (timeframe === '1d' || timeframe === '1w') {
-        const date = new Date(tickItem)
-        return isNaN(date.getTime()) ? tickItem : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      const date = new Date(tickItem)
+      if (isNaN(date.getTime())) return tickItem
+      
+      if (timeframe === '1d') {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
       }
-      return tickItem.split(' ')[0]
+      if (timeframe === '1w') {
+        // Show Day name + Date for 1 week
+        return date.toLocaleDateString([], { weekday: 'short', day: 'numeric' })
+      }
+      if (timeframe === '1m' || timeframe === '6m' || timeframe === '1y') {
+        return date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+      }
+      return date.toLocaleDateString([], { year: 'numeric', month: 'short' })
     } catch {
       return tickItem || ""
     }
@@ -316,7 +362,8 @@ function App() {
                 </div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData}>
+                  {/* Forcing a full re-render by using a unique key per view */}
+                  <AreaChart key={`${activePortfolio.ticker}-${timeframe}`} data={chartData}>
                     <defs>
                       <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -328,16 +375,21 @@ function App() {
                       dataKey="time" 
                       stroke="#888" 
                       tickFormatter={formatXAxis}
-                      minTickGap={30}
+                      minTickGap={timeframe === '1d' ? 50 : 40}
+                      fontSize={11}
                     />
                     <YAxis 
                       domain={['auto', 'auto']} 
                       stroke="#888" 
                       tickFormatter={(val) => `$${Number(val).toFixed(2)}`}
+                      fontSize={11}
                     />
                     <Tooltip 
                       contentStyle={{ backgroundColor: '#1a1a1a', border: '1px solid #333', borderRadius: '8px' }}
-                      labelFormatter={(label) => label ? label.split(' ')[0] : ""}
+                      labelFormatter={(label) => {
+                        const d = new Date(label)
+                        return isNaN(d.getTime()) ? label : d.toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      }}
                       formatter={(value: any) => [`$${Number(value).toFixed(2)}`, 'Price']}
                     />
                     <Area 
@@ -347,6 +399,7 @@ function App() {
                       strokeWidth={2}
                       fillOpacity={1} 
                       fill="url(#colorValue)" 
+                      animationDuration={400}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
