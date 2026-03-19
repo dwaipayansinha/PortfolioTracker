@@ -9,7 +9,7 @@ import os
 import json
 import requests
 import diskcache
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import time
 import re
 from pathlib import Path
@@ -22,14 +22,15 @@ DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 app = FastAPI()
 
-# Setup persistent disk cache in the user's data directory
-cache = diskcache.Cache(str(DATA_DIR / "api_cache"))
+# Setup persistent disk cache
+# BUMPED CACHE VERSION TO FORCE REFRESH FOR USER
+cache = diskcache.Cache(str(DATA_DIR / "api_cache_v2"))
 
 # API Keys
 FMP_API_KEY = "gjKkPLDKVAvvtXON3D9Yfvij9dZI9Ibo"
 TWELVE_DATA_API_KEY = "e60c246821d8495c8553022f50b404d8"
 
-# Allow CORS for local development
+# Allow CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -72,25 +73,13 @@ PORTFOLIOS = {
     }
 }
 
-# --- Fallback Logic & Data Fetchers ---
-
-TIMEFRAME_ORDER = ["max", "10y", "5y", "1y", "6m", "1m", "5d", "1d"]
-
 PERIOD_TO_DAYS = {
-    "1d": 1, "5d": 7, "1m": 31, "6m": 183, "1y": 366, "5y": 1826, "10y": 3653, "max": 7300
+    "1d": 1, "5d": 7, "1m": 31, "6m": 183, "1y": 366, "5y": 1826, "10y": 3653, "max": 99999
 }
 
-def get_next_shorter_period(current_period):
-    try:
-        idx = TIMEFRAME_ORDER.index(current_period)
-        if idx + 1 < len(TIMEFRAME_ORDER):
-            return TIMEFRAME_ORDER[idx + 1]
-    except ValueError:
-        pass
-    return None
+# --- Data Fetchers ---
 
-def fetch_fmp_data(ticker, period_days):
-    """Fallback 1: Financial Modeling Prep"""
+def fetch_fmp_max(ticker):
     try:
         url = f"https://financialmodelingprep.com/api/v3/historical-price-full/{ticker}?apikey={FMP_API_KEY}"
         res = requests.get(url, timeout=10)
@@ -98,131 +87,40 @@ def fetch_fmp_data(ticker, period_days):
         if 'historical' in data:
             df = pd.DataFrame(data['historical'])
             df['Date'] = pd.to_datetime(df['date'])
-            cutoff = datetime.now() - timedelta(days=period_days)
-            df = df[df['Date'] >= cutoff].sort_values('Date')
-            if not df.empty:
-                df = df.rename(columns={'close': 'Close'})
-                return df[['Date', 'Close']].set_index('Date')
-    except Exception as e:
-        print(f"FMP fallback failed for {ticker}: {e}")
+            df = df.sort_values('Date')
+            return df.rename(columns={'close': 'Close'}).set_index('Date')
+    except: pass
     return pd.DataFrame()
 
-def fetch_twelve_data(ticker, period_days):
-    """Fallback 2: Twelve Data"""
+def fetch_twelve_max(ticker):
     try:
-        interval = "1day"
-        url = f"https://api.twelvedata.com/time_series?symbol={ticker}&interval={interval}&outputsize=5000&apikey={TWELVE_DATA_API_KEY}"
+        url = f"https://api.twelvedata.com/time_series?symbol={ticker}&interval=1day&outputsize=5000&apikey={TWELVE_DATA_API_KEY}"
         res = requests.get(url, timeout=10)
         data = res.json()
         if 'values' in data:
             df = pd.DataFrame(data['values'])
-            df['datetime'] = pd.to_datetime(df['datetime'])
+            df['Date'] = pd.to_datetime(df['datetime'])
             df['Close'] = pd.to_numeric(df['close'])
-            cutoff = datetime.now() - timedelta(days=period_days)
-            df = df[df['datetime'] >= cutoff].sort_values('datetime')
-            if not df.empty:
-                return df[['datetime', 'Close']].rename(columns={'datetime': 'Date'}).set_index('Date')
-    except Exception as e:
-        print(f"Twelve Data fallback failed for {ticker}: {e}")
+            df = df.sort_values('Date')
+            return df.set_index('Date')
+    except: pass
     return pd.DataFrame()
 
-def robust_download(ticker, period, interval, attempts=2, min_rows=1):
-    """Sequential Fallback Downloader: Yahoo -> FMP -> Twelve Data with timeframe reduction."""
-    current_period = period
-    
-    while current_period:
-        # 1. Try Yahoo Finance
-        for i in range(attempts):
-            try:
-                data = yf.download(ticker, period=current_period, interval=interval, progress=False)
-                if not data.empty and len(data) >= min_rows:
-                    return data
-            except Exception as e:
-                # Catch "Period 'max' is invalid" error message
-                error_msg = str(e)
-                match = re.search(r"Period '(.+)' is invalid, must be one of: (.+)", error_msg)
-                if match:
-                    # If Yahoo tells us valid periods, use the best one
-                    valid_periods = [p.strip() for p in match.group(2).split(',')]
-                    # Filter our order by what Yahoo says is valid
-                    for p in TIMEFRAME_ORDER:
-                        if p in valid_periods:
-                            current_period = p
-                            break
-                    else:
-                        current_period = valid_periods[0]
-                    break # Break retry loop to try the new valid period
-            if i < attempts - 1: time.sleep(0.5)
+def get_max_data(ticker):
+    """Always pull MAX history from available sources."""
+    # 1. Yahoo
+    try:
+        data = yf.download(ticker, period="max", interval="1d", progress=False)
+        if not data.empty: return data
+    except: pass
 
-        # 2. Try FMP/Twelve Data with current period
-        days = PERIOD_TO_DAYS.get(current_period, 365)
-        print(f"Yahoo data insufficient/empty for {ticker} ({current_period}). Trying FMP...")
-        data = fetch_fmp_data(ticker, days)
-        if not data.empty and len(data) >= min_rows: return data
+    # 2. FMP
+    data = fetch_fmp_max(ticker)
+    if not data.empty: return data
 
-        print(f"FMP data insufficient/empty for {ticker} ({current_period}). Trying Twelve Data...")
-        data = fetch_twelve_data(ticker, days)
-        if not data.empty and len(data) >= min_rows: return data
-
-        # 3. If all sources failed for this period, try the next shorter period
-        next_period = get_next_shorter_period(current_period)
-        print(f"All sources failed for {ticker} ({current_period}). Trying next shorter: {next_period}")
-        current_period = next_period
-
-    return pd.DataFrame()
-
-# --- Utility Functions ---
-
-RENAME_FILE = DATA_DIR / "renamed_tickers.json"
-
-def get_renamed_ticker(old_ticker):
-    if RENAME_FILE.exists():
-        with open(RENAME_FILE, 'r') as f:
-            try:
-                renames = json.load(f)
-                return renames.get(old_ticker, old_ticker)
-            except: return old_ticker
-    return old_ticker
-
-def save_rename(old_ticker, new_ticker):
-    renames = {}
-    if RENAME_FILE.exists():
-        with open(RENAME_FILE, 'r') as f:
-            try: renames = json.load(f)
-            except: pass
-    renames[old_ticker] = new_ticker
-    with open(RENAME_FILE, 'w') as f:
-        json.dump(renames, f)
-
-def find_portfolio_name(ticker):
-    for bank, funds in PORTFOLIOS.items():
-        for name, t in funds.items():
-            if t == ticker: return name
-    return None
-
-def resolve_ticker(ticker):
-    current_ticker = get_renamed_ticker(ticker)
-    data = robust_download(current_ticker, "1d", "1d", attempts=1)
-    if not data.empty: return current_ticker
-        
-    name = find_portfolio_name(ticker)
-    if name:
-        try:
-            url = f"https://query2.finance.yahoo.com/v1/finance/search?q={name}"
-            headers = {'User-Agent': 'Mozilla/5.0'}
-            res = requests.get(url, headers=headers, timeout=5)
-            search_data = res.json()
-            if search_data.get('quotes'):
-                for quote in search_data['quotes']:
-                    if quote.get('symbol') and quote.get('symbol') != current_ticker:
-                         new_ticker = quote['symbol']
-                         verify = yf.download(new_ticker, period="1d", progress=False)
-                         if not verify.empty:
-                             save_rename(ticker, new_ticker)
-                             return new_ticker
-        except Exception as e:
-            print(f"Search failed for {name}: {e}")
-    return current_ticker
+    # 3. Twelve Data
+    data = fetch_twelve_max(ticker)
+    return data
 
 # --- API Endpoints ---
 
@@ -232,121 +130,128 @@ def get_portfolios():
 
 @app.post("/api/clear-cache")
 def clear_cache():
-    try:
-        cache.clear()
-        # Also clear the low-level yfinance sqlite cache if it exists in the user dir
-        return {"status": "success", "message": "Persistent cache cleared"}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    cache.clear()
+    return {"status": "success"}
 
-@app.get("/api/historical/{ticker}")
-def get_historical(ticker: str, range: str = "5d"):
-    resolved_ticker = resolve_ticker(ticker)
-    cache_key = f"hist_{resolved_ticker}_{range}"
-    
-    interval_map = {
-        "1d": "5m", "5d": "1h", "1m": "1d", "6m": "1d",
-        "1y": "1d", "5y": "1wk", "10y": "1mo", "max": "1mo"
-    }
-    
-    interval = interval_map.get(range, "1d")
-    
-    try:
-        data = robust_download(resolved_ticker, range, interval)
-            
-        if data.empty:
-             # Try to return from cache
-             cached_val = cache.get(cache_key)
-             if cached_val: return cached_val
-             raise HTTPException(status_code=404, detail=f"No data found for ticker {resolved_ticker}")
-             
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.droplevel(1)
-            
-        data.reset_index(inplace=True)
-        date_col = 'Date' if 'Date' in data.columns else data.columns[0]
-        data['time'] = data[date_col].astype(str)
-        result = data[['time', 'Close']].rename(columns={'Close': 'value'}).dropna().to_dict(orient='records')
-        
-        cache.set(cache_key, result, expire=3600) 
-        return result
-    except Exception as e:
-        cached_val = cache.get(cache_key)
-        if cached_val: return cached_val
-        raise HTTPException(status_code=500, detail=str(e))
+@app.get("/api/data/{ticker}")
+def get_full_portfolio_data(ticker: str):
+    cache_key = f"full_data_v2_{ticker}"
+    cached = cache.get(cache_key)
+    if cached: return cached
 
-@app.get("/api/analysis/{ticker}")
-def get_analysis(ticker: str):
-    resolved_ticker = resolve_ticker(ticker)
-    cache_key = f"analysis_{resolved_ticker}"
+    data = get_max_data(ticker)
+    if data.empty:
+        raise HTTPException(status_code=404, detail="No data found")
+
+    if isinstance(data.columns, pd.MultiIndex):
+        data.columns = data.columns.get_level_values(0)
     
-    try:
-        # Require at least 30 rows for analysis. Sequential fallback if needed.
-        data = robust_download(resolved_ticker, "1y", "1d", min_rows=30)
+    data.reset_index(inplace=True)
+    date_col = 'Date' if 'Date' in data.columns else data.columns[0]
+    
+    # Process for JSON
+    data['time'] = data[date_col].astype(str)
+    data['value'] = pd.to_numeric(data['Close'], errors='coerce')
+    series = data[['time', 'value']].dropna().to_dict(orient='records')
+
+    # Calculate Availability
+    first_date = pd.to_datetime(series[0]['time'])
+    if first_date.tzinfo:
+        now = datetime.now(timezone.utc)
+    else:
+        now = datetime.now()
+    
+    total_days = (now - first_date.replace(tzinfo=None) if first_date.tzinfo else now - first_date).days
+    availability = {p: (total_days >= days * 0.8) for p, days in PERIOD_TO_DAYS.items()}
+    availability['max'] = True
+
+    # --- PROFESSIONAL AI ANALYSIS (v2) ---
+    closes = data['value'].dropna()
+    analysis = {}
+    if len(closes) > 10:
+        # Metrics Calculation
+        current_price = float(closes.iloc[-1])
+        sma_20 = float(closes.rolling(window=min(20, len(closes))).mean().iloc[-1])
+        sma_50 = float(closes.rolling(window=min(50, len(closes))).mean().iloc[-1])
+        sma_200 = float(closes.rolling(window=min(200, len(closes))).mean().iloc[-1])
         
-        if data.empty:
-             cached_val = cache.get(cache_key)
-             if cached_val: return cached_val
-             raise HTTPException(status_code=404, detail=f"No data found for analysis on {resolved_ticker}")
-             
-        if isinstance(data.columns, pd.MultiIndex):
-            data.columns = data.columns.droplevel(1)
-            
-        closes = data['Close'].dropna()
-        if len(closes) < 5: 
-             return {"recommendation": "Diversify", "confidence": 50, "reasons": ["Insufficient history across all sources"]}
-             
-        sma_50 = closes.rolling(window=50).mean().iloc[-1] if len(closes) >= 50 else closes.mean()
-        sma_200 = closes.rolling(window=200).mean().iloc[-1] if len(closes) >= 200 else (closes.rolling(window=100).mean().iloc[-1] if len(closes) >= 100 else sma_50)
-        current_price = closes.iloc[-1]
-        
+        # Risk Metric (Annualized Sharpe Proxy)
         returns = closes.pct_change().dropna()
         volatility = returns.std() * np.sqrt(252)
-        annual_return = returns.mean() * 252
-        sharpe = annual_return / volatility if volatility > 0.0001 else 0
+        sharpe = (returns.mean() * 252) / volatility if volatility > 0.0001 else 0
         
+        # ML Forecast
         lookback = min(100, len(closes))
         y = closes.values[-lookback:]
         X = np.arange(len(y)).reshape(-1, 1)
-        model = LinearRegression()
-        model.fit(X, y)
-        future_X = np.array([[len(y) + 30]])
-        forecast_price = model.predict(future_X)[0]
+        model = LinearRegression().fit(X, y)
+        forecast = float(model.predict(np.array([[len(y) + 30]]))[0])
+        forecast_pct = (forecast - current_price) / current_price
         
         score = 0
         reasons = []
-        if current_price > (sma_50 if not pd.isna(sma_50) else current_price): score += 1; reasons.append("Price is above 50-day SMA (Bullish).")
-        else: score -= 1; reasons.append("Price is below 50-day SMA (Bearish).")
         
-        if sma_50 > (sma_200 if not pd.isna(sma_200) else sma_50): score += 1; reasons.append("Golden Cross active (50SMA > 200SMA).")
-        else: score -= 1; reasons.append("Death Cross active (50SMA < 200SMA).")
-        
-        if sharpe > 0.4: score += 1; reasons.append(f"Strong risk-adjusted returns (Sharpe: {sharpe:.2f}).")
-        elif sharpe < 0: score -= 1; reasons.append(f"Poor risk-adjusted returns (Sharpe: {sharpe:.2f}).")
-        
-        if forecast_price > current_price * 1.015: score += 2; reasons.append(f"ML Model forecasts >1.5% growth in 30 days.")
-        elif forecast_price < current_price: score -= 2; reasons.append(f"ML Model forecasts price drop.")
+        # 1. Trend Analysis (Moving Averages)
+        if current_price > sma_50:
+            score += 2
+            reasons.append(f"Price (${current_price:.2f}) is above 50-day average (${sma_50:.2f}), confirming a bullish trend.")
+        else:
+            score -= 2
+            reasons.append(f"Price (${current_price:.2f}) is below 50-day average (${sma_50:.2f}), indicating bearish pressure.")
             
-        rec = "Invest" if score >= 2 else "Remove" if score <= -2 else "Diversify"
-        conf = min(100, 50 + abs(score) * 10) if rec != "Diversify" else 60
-            
-        result = {
-            "recommendation": rec, "confidence": conf, "reasons": reasons,
+        if sma_50 > sma_200:
+            score += 1
+            reasons.append("Golden Cross confirmed: Long-term momentum is positive.")
+        elif sma_50 < sma_200:
+            score -= 1
+            reasons.append("Death Cross active: Long-term momentum is negative.")
+
+        # 2. Risk/Reward (Sharpe Ratio)
+        if sharpe > 0.6:
+            score += 2
+            reasons.append(f"High risk-adjusted performance (Sharpe: {sharpe:.2f}).")
+        elif sharpe < 0:
+            score -= 1
+            reasons.append(f"Negative risk-adjusted returns (Sharpe: {sharpe:.2f}).")
+
+        # 3. AI Predictive Modeling
+        if forecast_pct > 0.02:
+            score += 3
+            reasons.append(f"AI Model signals strong upside potential of {forecast_pct*100:.1f}% over the next 30 days.")
+        elif forecast_pct > 0.005:
+            score += 1
+            reasons.append(f"AI Model predicts steady growth (~{forecast_pct*100:.1f}%) in the short term.")
+        elif forecast_pct < -0.02:
+            score -= 3
+            reasons.append(f"AI Model detects significant downward risk ({forecast_pct*100:.1f}%) ahead.")
+
+        # FINAL RATING
+        if score >= 4: rec = "Strong Buy"
+        elif score >= 1: rec = "Buy"
+        elif score >= -1: rec = "Hold"
+        elif score >= -3: rec = "Sell"
+        else: rec = "Strong Sell"
+        
+        analysis = {
+            "recommendation": rec,
+            "confidence": min(98, 60 + abs(score) * 6),
+            "reasons": reasons,
             "metrics": {
-                "currentPrice": round(float(current_price), 2),
-                "sma50": round(float(sma_50), 2) if not pd.isna(sma_50) else round(float(current_price), 2),
-                "sma200": round(float(sma_200), 2) if not pd.isna(sma_200) else round(float(sma_50), 2),
-                "sharpeRatio": round(float(sharpe), 2),
-                "forecast30d": round(float(forecast_price), 2)
+                "currentPrice": round(current_price, 2),
+                "forecast30d": round(forecast, 2),
+                "sma50": round(sma_50, 2),
+                "sharpeRatio": round(sharpe, 2)
             }
         }
-        cache.set(cache_key, result, expire=3600)
-        return result
-    except Exception as e:
-        print(f"Analysis error: {e}")
-        cached_val = cache.get(cache_key)
-        if cached_val: return cached_val
-        raise HTTPException(status_code=500, detail=str(e))
+
+    response = {
+        "series": series,
+        "availability": availability,
+        "analysis": analysis
+    }
+    
+    cache.set(cache_key, response, expire=3600)
+    return response
 
 if __name__ == "__main__":
     import uvicorn

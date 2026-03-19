@@ -1,4 +1,4 @@
-# Canadian Bank Investment Portfolio Tracker (v1.3.0)
+# Canadian Bank Investment Portfolio Tracker (v1.5.0)
 
 A professional desktop application built with Electron, React, and Python (FastAPI) to track TD, BMO, RBC, Scotiabank, and CIBC portfolios, featuring AI-powered investment recommendations.
 
@@ -12,22 +12,20 @@ A professional desktop application built with Electron, React, and Python (FastA
 This method installs the software to `C:\Program Files` and creates desktop/start menu shortcuts.
 
 **Steps:**
-1.  Navigate to the project root directory.
-2.  Right-click **`Install-PortfolioTracker.ps1`** and select **"Run with PowerShell"**.
+1.  Download the latest **`Portfolio Tracker Setup 1.5.0.exe`** from the GitHub Releases page.
+2.  Run the setup file.
 3.  Accept the Administrator prompt if asked.
 4.  Once complete, launch **"Portfolio Tracker"** from your Desktop or Start Menu.
 
 ### 2. Manual/Portable Use
-You can run the application directly without installing:
-- **Path:** `frontend/release/win-unpacked/Portfolio Tracker.exe`
-- **Behavior:** The app will automatically spawn the Python backend in the background and perform a health check before showing the GUI.
+You can run the application directly from the source if you have the dependencies installed.
+Refer to [IMPLEMENTATION.md](./IMPLEMENTATION.md) for details.
 
 ## Core Features
-- **Sequential Startup**: Backend starts first with an automated health check before the GUI appears.
-- **Program Files Support**: Dedicated installer script for standard Windows deployment.
+- **Professional AI Ratings**: Uses industry-standard terms (Strong Buy, Buy, Hold, Sell, Strong Sell).
+- **Detailed Analysis Breakdown**: Explains the logic behind every recommendation.
 - **Fail-Safe Data**: Triple-API fallback (Yahoo -> FMP -> Twelve Data).
 - **Sequential History**: Intelligent timeframe fallback (Max -> 10Y -> ... -> 1D).
-- **AI Recommendation Engine**: Hybrid Quant/ML models for Invest/Remove signals.
 - **Persistent Cache**: Offline reliability via disk-based data storage.
 - **Auto-Updates**: Checks for newer versions on startup via GitHub.
 
