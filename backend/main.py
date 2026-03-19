@@ -12,13 +12,18 @@ import diskcache
 from datetime import datetime, timedelta
 import time
 import re
+from pathlib import Path
 
 warnings.filterwarnings("ignore")
 
+# Setup persistent data directory in the user's home folder
+DATA_DIR = Path.home() / ".portfolio_tracker"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 app = FastAPI()
 
-# Setup persistent disk cache
-cache = diskcache.Cache("api_cache")
+# Setup persistent disk cache in the user's data directory
+cache = diskcache.Cache(str(DATA_DIR / "api_cache"))
 
 # API Keys
 FMP_API_KEY = "gjKkPLDKVAvvtXON3D9Yfvij9dZI9Ibo"
@@ -151,11 +156,11 @@ def robust_download(ticker, period, interval, attempts=2, min_rows=1):
 
         # 2. Try FMP/Twelve Data with current period
         days = PERIOD_TO_DAYS.get(current_period, 365)
-        print(f"Yahoo failed for {ticker} ({current_period}). Trying FMP...")
+        print(f"Yahoo data insufficient/empty for {ticker} ({current_period}). Trying FMP...")
         data = fetch_fmp_data(ticker, days)
         if not data.empty and len(data) >= min_rows: return data
 
-        print(f"FMP failed for {ticker} ({current_period}). Trying Twelve Data...")
+        print(f"FMP data insufficient/empty for {ticker} ({current_period}). Trying Twelve Data...")
         data = fetch_twelve_data(ticker, days)
         if not data.empty and len(data) >= min_rows: return data
 
@@ -168,10 +173,10 @@ def robust_download(ticker, period, interval, attempts=2, min_rows=1):
 
 # --- Utility Functions ---
 
-RENAME_FILE = "renamed_tickers.json"
+RENAME_FILE = DATA_DIR / "renamed_tickers.json"
 
 def get_renamed_ticker(old_ticker):
-    if os.path.exists(RENAME_FILE):
+    if RENAME_FILE.exists():
         with open(RENAME_FILE, 'r') as f:
             try:
                 renames = json.load(f)
@@ -181,7 +186,7 @@ def get_renamed_ticker(old_ticker):
 
 def save_rename(old_ticker, new_ticker):
     renames = {}
-    if os.path.exists(RENAME_FILE):
+    if RENAME_FILE.exists():
         with open(RENAME_FILE, 'r') as f:
             try: renames = json.load(f)
             except: pass
@@ -241,6 +246,7 @@ def get_historical(ticker: str, range: str = "5d"):
         data = robust_download(resolved_ticker, range, interval)
             
         if data.empty:
+             # Try to return from cache
              cached_val = cache.get(cache_key)
              if cached_val: return cached_val
              raise HTTPException(status_code=404, detail=f"No data found for ticker {resolved_ticker}")

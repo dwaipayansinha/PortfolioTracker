@@ -47,12 +47,17 @@ function startBackend() {
   })
 }
 
-async function waitForBackend(url: string, attempts = 10): Promise<boolean> {
+async function waitForBackend(url: string, attempts = 30): Promise<boolean> {
+  console.log(`Waiting for backend at ${url}...`)
   for (let i = 0; i < attempts; i++) {
     try {
-      await axios.get(url)
-      return true
-    } catch (e) {
+      const response = await axios.get(url, { timeout: 2000 })
+      if (response.status === 200) {
+        console.log('Backend is ready!')
+        return true
+      }
+    } catch (e: any) {
+      console.log(`Backend not ready yet (attempt ${i + 1}/${attempts}): ${e.message}`)
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
   }
