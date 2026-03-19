@@ -4,6 +4,8 @@ backend/build/
 backend/dist/
 backend/renamed_tickers.json
 backend/*.spec
+backend/api_cache/
+backend/yfinance_cache.sqlite
 
 # Node modules and build output
 frontend/node_modules/
@@ -11,6 +13,7 @@ frontend/dist/
 frontend/dist-electron/
 frontend/out/
 frontend/release/
+frontend/api_cache/
 
 # OS specific
 .DS_Store
