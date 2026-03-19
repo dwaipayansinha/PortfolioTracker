@@ -33,14 +33,21 @@ The recommendation engine uses a weighted scoring system (Score range: -5 to +5)
 - **Remove:** Score <= -2
 - **Diversify:** Score between -1 and 1
 
-## Standalone Packaging Process
+## Software Packaging & Platforms
 
-To ensure the app runs on any Windows 10/11 machine without prerequisites:
-
+### Desktop (Windows)
 1.  **Backend Bundling:** PyInstaller bundles the Python interpreter and all libraries into `portfolio_api.exe`.
 2.  **Frontend Bundling:** Vite compiles the React app into optimized static assets.
 3.  **Electron Forge:** Combines the UI assets and the backend executable into a final package.
-4.  **Resource Management:** The backend executable is placed in the `extraResources` folder. At runtime, the Electron Main process locates this file using `process.resourcesPath` and spawns it.
+4.  **Resource Management:** The backend executable is placed in the `extraResources` folder. At runtime, the Electron Main process locates this file and spawns it.
+
+### Mobile (Android)
+1.  **Wrapper:** [Capacitor] acts as a bridge between the React web app and the Android OS.
+2.  **Cloud Dependency:** Unlike the desktop version, the Android app requires a cloud-hosted backend (e.g., Render) as it cannot run a local Python server.
+3.  **Build Variants:**
+    - **Free Variant**: Injected with `VITE_APP_VARIANT=free`. Displays a bottom-anchored AdMob banner.
+    - **Paid Variant**: Injected with `VITE_APP_VARIANT=paid`. Omit ads entirely for a premium experience.
+4.  **AdMob Integration**: The `@capacitor-community/admob` plugin is initialized only in the free variant to optimize battery and data usage.
 
 ## Error Handling & Reliability
 

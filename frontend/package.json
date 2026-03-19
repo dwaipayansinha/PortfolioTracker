@@ -17,9 +17,16 @@
     "preview": "vite preview",
     "package": "electron-forge package",
     "start": "electron-forge start",
-    "make": "electron-forge make"
+    "make": "electron-forge make",
+    "build:free": "vite build --mode free",
+    "build:paid": "vite build --mode paid",
+    "cap:sync": "npx cap sync android"
   },
   "dependencies": {
+    "@capacitor-community/admob": "^7.2.0",
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/cli": "^7.6.0",
+    "@capacitor/core": "^8.2.0",
     "axios": "^1.8.1",
     "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "^6.8.3",

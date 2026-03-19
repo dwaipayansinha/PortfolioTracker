@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import axios from 'axios'
+import { AdMob, BannerAdPosition, BannerAdSize } from '@capacitor-community/admob'
+import { Capacitor } from '@capacitor/core'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart
 } from 'recharts'
@@ -7,7 +9,7 @@ import {
   TrendingUp, AlertCircle, Briefcase, Activity, CheckCircle, XCircle, ChevronDown, ChevronRight, RefreshCw, Download
 } from 'lucide-react'
 
-const API_BASE = 'http://127.0.0.1:8000/api'
+const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
 // Define the window interface for IPC
 declare global {
@@ -73,6 +75,26 @@ function App() {
   const [error, setError] = useState<string | null>(null)
   const [retryTimer, setRetryTimer] = useState<number>(60)
   const [updateStatus, setUpdateStatus] = useState<string | null>(null)
+  
+  const isMobile = Capacitor.getPlatform() !== 'web' && Capacitor.getPlatform() !== 'electron'
+  const isPaid = import.meta.env.VITE_APP_VARIANT === 'paid'
+
+  useEffect(() => {
+    // Initialize AdMob if mobile and free
+    if (isMobile && !isPaid) {
+      AdMob.initialize({
+        requestTrackingAuthorization: true,
+      }).then(() => {
+        AdMob.showBanner({
+          adId: 'ca-app-pub-3940256099942544/6300978111', // Test Ad ID
+          adSize: BannerAdSize.ADAPTIVE_BANNER,
+          position: BannerAdPosition.BOTTOM_CENTER,
+          margin: 0,
+          isTesting: true
+        })
+      }).catch(err => console.error("AdMob Error:", err))
+    }
+  }, [isMobile, isPaid])
   
   // Ref to track the current request ID to avoid race conditions
   const requestCounter = useRef(0)

@@ -21,7 +21,30 @@ The project includes a fully packaged installer for **Windows 10 & 11**. This ve
 3.  **Automatic Setup**: The app installs automatically to your local user directory and creates shortcuts.
 4.  **Auto-Updates**: The app will automatically check for and install newer versions on startup.
 
-### 2. Running from Source (Development)
+### 2. Android Application (Mobile)
+The mobile version is built using **Capacitor**. It supports two variants: **Free** (Ad-supported) and **Paid** (Ad-free).
+
+**Build Instructions:**
+1.  **Environment Setup**:
+    - For Free: Ensure `.env.free` has your AdMob and Backend URL.
+    - For Paid: Ensure `.env.paid` has your Backend URL.
+2.  **Generate Free Variant**:
+    ```bash
+    npm run build:free
+    npx cap sync android
+    ```
+3.  **Generate Paid Variant**:
+    ```bash
+    npm run build:paid
+    npx cap sync android
+    ```
+4.  **Open in Android Studio**:
+    ```bash
+    npx cap open android
+    ```
+    *Inside Android Studio, you can configure Product Flavors to manage different Application IDs for the Play Store.*
+
+### 3. Running from Source (Development)
 If you wish to modify the code:
 
 **Step 1: Start the Python Backend**

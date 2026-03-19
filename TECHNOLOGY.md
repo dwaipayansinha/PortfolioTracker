@@ -6,6 +6,8 @@ This document provides a detailed breakdown of the technologies used in the Cana
 - **Framework:** [React 18](https://reactjs.org/) with [TypeScript](https://www.typescriptlang.org/).
 - **Build Tool:** [Vite](https://vitejs.dev/) for fast development and optimized production bundling.
 - **Desktop Wrapper:** [Electron](https://www.electronjs.org/) to provide a native desktop experience on Windows.
+- **Mobile Wrapper:** [Capacitor](https://capacitorjs.com/) to port the React application to Android.
+- **Monetization:** [Capacitor AdMob](https://github.com/capacitor-community/admob) for banner ad integration in the free variant.
 - **Charting:** [Recharts](https://recharts.org/) for interactive, responsive SVG-based financial graphs.
 - **Icons:** [Lucide React](https://lucide.dev/) for consistent, scalable UI iconography.
 - **Styling:** Vanilla CSS with modern Flexbox and Grid layouts, featuring a high-contrast dark mode.
