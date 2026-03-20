@@ -12,6 +12,12 @@ The application follows a **Decoupled Client-Server Architecture** bundled into 
 
 ## AI & Analysis Logic (v2.0)
 
+### ⚠️ IMPORTANT: Risk & Model Accuracy
+The analytical models in this software are strictly based on historical price data. 
+- **Linear Regression** assumes that future price movements will follow a direct mathematical trend from the past, which is rarely true in volatile financial markets. 
+- **Moving Averages** are lagging indicators—they tell you what happened, not what will happen.
+- **Predictions** should be viewed as statistical experiments, not as reliable forecasts.
+
 The recommendation engine uses a multi-factor scoring system to generate professional ratings.
 
 ### 1. Trend Analysis (Moving Averages)
