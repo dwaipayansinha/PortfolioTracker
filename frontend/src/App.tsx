@@ -9,19 +9,6 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000/api'
 
-// Define the window interface for IPC
-declare global {
-  interface Window {
-    ipcRenderer: {
-      on: (channel: string, listener: (event: any, ...args: any[]) => void) => void
-      off: (channel: string, ...args: any[]) => void
-      send: (channel: string, ...args: any[]) => void
-      invoke: (channel: string, ...args: any[]) => Promise<any>
-      checkForUpdates: () => void
-    }
-  }
-}
-
 // --- Error Boundary ---
 class ErrorBoundary extends React.Component<any, any> {
   constructor(props: any) {
@@ -40,6 +27,19 @@ class ErrorBoundary extends React.Component<any, any> {
       );
     }
     return this.props.children;
+  }
+}
+
+// Define the window interface for IPC
+declare global {
+  interface Window {
+    ipcRenderer: {
+      on: (channel: string, listener: (event: any, ...args: any[]) => void) => void
+      off: (channel: string, ...args: any[]) => void
+      send: (channel: string, ...args: any[]) => void
+      invoke: (channel: string, ...args: any[]) => Promise<any>
+      checkForUpdates: () => void
+    }
   }
 }
 
@@ -78,7 +78,6 @@ function AppContent() {
 
   // Load Initial List
   useEffect(() => {
-    // Listen for update status from main process
     const handleUpdate = (_event: any, status: string) => {
       setUpdateStatus(status)
       if (status.includes("latest version") || status.includes("Error")) {
@@ -114,7 +113,7 @@ function AppContent() {
     if (!activePortfolio) return
     setLoading(true)
     setError(null)
-    setAnalysis(null) // CLEAR STALE DATA
+    setAnalysis(null)
     setFullSeries([])
     
     axios.get(`${API_BASE}/data/${activePortfolio.ticker}`)
@@ -163,7 +162,6 @@ function AppContent() {
 
   return (
     <div className="app-container" style={{ display: 'flex', height: '100vh', backgroundColor: '#0d0d0d', color: '#fff', overflow: 'hidden' }}>
-      {/* Sidebar */}
       <div className="sidebar" style={{ width: '300px', borderRight: '1px solid #333', display: 'flex', flexDirection: 'column', flexShrink: 0 }}>
         <div style={{ padding: '20px', borderBottom: '1px solid #333' }}>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '10px' }}><Briefcase color="#4ade80" /> Portfolio Tracker</h2>
@@ -201,7 +199,6 @@ function AppContent() {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="main-content" style={{ flex: 1, padding: '40px', overflowY: 'auto' }}>
         {error && !activePortfolio ? (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
@@ -229,7 +226,7 @@ function AppContent() {
                     <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                     <XAxis dataKey="time" tickFormatter={formatXAxis} stroke="#444" fontSize={11} minTickGap={40} />
                     <YAxis domain={['auto', 'auto']} stroke="#444" fontSize={11} tickFormatter={v => `$${v}`} />
-                    <Tooltip contentStyle={{ background: '#000', border: '1px solid #333', borderRadius: '8px' }} labelFormatter={l => new Date(l).toLocaleDateString()} formatter={(v: any, n: string) => [`$${Number(v).toFixed(2)}`, n === 'value' ? 'Price' : 'AI Trend']} />
+                    <Tooltip contentStyle={{ background: '#000', border: '#333', borderRadius: '8px' }} labelFormatter={l => new Date(l).toLocaleDateString()} formatter={(v: any, n: string) => [`$${Number(v).toFixed(2)}`, n === 'value' ? 'Price' : 'AI Trend']} />
                     <Area type="monotone" dataKey="value" stroke="#3b82f6" strokeWidth={2} fill="url(#colorValue)" fillOpacity={1} animationDuration={500} />
                     <Line type="linear" dataKey="trend" stroke={getStatusColor(analysis?.recommendation || '')} strokeWidth={3} strokeDasharray="5 5" dot={false} connectNulls activeDot={false} />
                   </ComposedChart>
@@ -243,7 +240,7 @@ function AppContent() {
                   <h3 style={{ color: '#888', textTransform: 'uppercase', fontSize: '0.8rem', letterSpacing: '1px' }}>AI Rating</h3>
                   <div style={{ fontSize: '2.2rem', fontWeight: '900', margin: '15px 0', color: getStatusColor(analysis.recommendation) }}>{analysis.recommendation}</div>
                   <div style={{ marginTop: '20px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '5px', color: '#666' }}><span>Confidence</span><span>{analysis.confidence}%</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '5px', color: '#666' }}><span>Model Confidence</span><span>{analysis.confidence}%</span></div>
                     <div style={{ height: '6px', background: '#222', borderRadius: '3px', overflow: 'hidden' }}><div style={{ width: `${analysis.confidence}%`, height: '100%', background: '#2563eb' }} /></div>
                   </div>
                 </div>

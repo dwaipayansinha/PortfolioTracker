@@ -4,7 +4,7 @@ A professional desktop application built with Electron, React, and Python (FastA
 
 ## Documentation Index
 - [TECHNOLOGY.md](./TECHNOLOGY.md) - Full breakdown of the multi-source tech stack.
-- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Deep dive into AI logic, sequential startup, and Program Files deployment.
+- [IMPLEMENTATION.md](./IMPLEMENTATION.md) - Deep dive into AI logic, local slicing architecture, and packaging.
 
 ## Installation & User Guide (Windows 10/11)
 
@@ -13,22 +13,32 @@ This method installs the software to `C:\Program Files` and creates desktop/star
 
 **Steps:**
 1.  Download the latest **`Portfolio Tracker Setup 1.5.0.exe`** from the GitHub Releases page.
-2.  Run the setup file.
-3.  Accept the Administrator prompt if asked.
-4.  Once complete, launch **"Portfolio Tracker"** from your Desktop or Start Menu.
+2.  Run the setup file and accept the Administrator prompt.
+3.  Once complete, launch **"Portfolio Tracker"** from your Desktop or Start Menu.
+4.  **Note**: On first launch, click **"Clear Cache"** in the sidebar to initialize the AI engine.
 
-### 2. Manual/Portable Use
-You can run the application directly from the source if you have the dependencies installed.
-Refer to [IMPLEMENTATION.md](./IMPLEMENTATION.md) for details.
+### 2. Development Setup
+If you wish to run the project from source:
+
+**Backend:**
+```bash
+cd backend
+.\venv\Scripts\activate
+python main.py
+```
+
+**Frontend:**
+```bash
+cd frontend
+npm run dev
+```
 
 ## Core Features
-- **Professional AI Ratings**: Uses industry-standard terms (Strong Buy, Buy, Hold, Sell, Strong Sell).
-- **Detailed Analysis Breakdown**: Explains the logic behind every recommendation.
-- **Fail-Safe Data**: Triple-API fallback (Yahoo -> FMP -> Twelve Data).
-- **Sequential History**: Intelligent timeframe fallback (Max -> 10Y -> ... -> 1D).
-- **Persistent Cache**: Offline reliability via disk-based data storage.
-- **Auto-Updates**: Checks for newer versions on startup via GitHub.
-
-## Android Application (Mobile)
-Supports **Free** (Ad-supported) and **Paid** (Ad-free) variants.
-Refer to [IMPLEMENTATION.md](./IMPLEMENTATION.md) for mobile build instructions.
+- **Professional AI Ratings**: Industry-standard signals (Strong Buy, Buy, Hold, Sell, Strong Sell).
+- **In-Depth Analysis Breakdown**: Bulleted insights explaining the trend, momentum, and forecast for every fund.
+- **Fail-Safe Data Engine**: Triple-source fallback (Yahoo ➡️ FMP ➡️ Twelve Data) ensuring near-100% uptime.
+- **Dynamic Trend Lines**: High-visibility dashed overlays showing AI-predicted price direction.
+- **Local Slicing Technology**: Pulls maximum history once to ensure instantaneous and consistent chart switching.
+- **Stability Focused**: Custom rendering configuration to prevent black screens and driver conflicts.
+- **Persistent Failover Cache**: Automatically displays last known data if APIs are unreachable.
+- **Auto-Updates**: Seamless background updates via GitHub.
